@@ -1,0 +1,71 @@
+---
+title: <center><br><font size = "5">"REPORTE DE PRODUCCION TANGANCICUARO"</font> </center>
+author: "Francisco Hernandez"
+date: "15 de junio de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+ <div align= "right" ><font size = "4"> Fecha:`r Sys.time()`</div>
+ 
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+
+library(knitr)
+read_chunk('geo.R')
+```
+
+###GRAFICO DE CAJAS ENVIADAS SEGUN USDA
+
+Se eliminaron::
+               filter(!(Semana == 26 & Year == 2017))%>%
+               filter(!(Semana == 25 & Year == 2017))%>%
+               filter(!(Semana == 37 & Year == 2015)) 
+
+
+
+
+``` {r anab.ts, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+
+<<datos>>
+  anab.ts.plot
+print(plot(anab.decomp))
+anab.seasonal.plot
+
+
+``` 
+
+
+###PRODUCCION ALPASA CONVERTIDO A 6 OZ
+``` {r ALPASA 6OZ, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+alp.ts.plot
+alpcum.plot
+plot(alp.decompose) 
+
+``` 
+``` {r alpasamoney , echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+alpmoney.ts.plot
+alpmoneycum.plot
+plot(alpmoney.decompose) 
+
+``` 
+
+
+``` {r comparativo, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+
+comp.regre.plot
+ratio.ts.plot
+
+``` 
+
+``` {r precios, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+
+comp.regre.plot
+ratio.ts.plot
+
+``` 
