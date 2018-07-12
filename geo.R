@@ -1,6 +1,5 @@
 ## @knitr datos
 
-#HOla
 library(RODBC)
 library(plyr)
 library(dplyr)
