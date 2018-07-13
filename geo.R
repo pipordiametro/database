@@ -15,7 +15,7 @@ library(PerformanceAnalytics)
 library(RCurl)
 library(XML)
 
-setwd("C:/Users/PRODUCCI?N/Documents/R/root/tangancicuaro")
+
 source("registros.R",encoding="utf-8")
 
 #filter(!(Cajasanab == 0))
