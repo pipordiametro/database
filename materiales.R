@@ -77,6 +77,7 @@ names(hfruta) <- paste0("h",names(hfruta))
 names(bfruta) <- paste0("b",names(bfruta))
 productos <- myfetch("tbProductos")
 names(productos) <- paste0("p", names(productos))
+
 presentaciones <- myfetch("tbPresentaciones")
 
 embalajes <- merge(productos, presentaciones, 
@@ -112,6 +113,10 @@ clams <- fruta%>%
 enviados <- rbind(cajas,clams)%>%
   ddply(.(Fecha,Tipo), summarize, Total = sum(Aceptadas))%>%
   transmute(Fecha = Fecha, Presentacion = Tipo, Total = -Total)
+
+enviados[enviados$Presentacion == "125G",]$Presentacion <-  "4.4OZ"
+enviados[enviados$Presentacion == "12X125G",]$Presentacion <-  "12X4.4OZ"
+
 rm(hfruta,bfruta)
 rm(fruta, cajas, clams)
 
@@ -123,17 +128,19 @@ datos <- rbind(entradas,enviados)%>%
 flujos <- ddply(datos,.(Fecha,Presentacion), 
                 summarize, Total =sum(Total))
 
+for (var in unique(flujos$Presentacion)){
+  assign(paste0(var,".plot"), ggplotly(ggplot(flujos[flujos$Presentacion == var,], 
+                                aes(x = Fecha, y = Total)) + geom_line(colour = "cyan") + 
+                                  labs(title = var)))
+}
 
-dias.plot <-  ggplotly(ggplot(flujos, aes(x = Fecha, y = Total, colour = Presentacion)) +
-  geom_line())
 
-flujos.cum <- flujos%>%
-  arrange(Fecha)%>%
-  group_by(Clave)%>%
-  mutate(Acumulado = cumsum(Total))%>%
-  ungroup()
 
-acumulado.plot <-  ggplotly(ggplot(flujos.cum, aes(x = Fecha, y = Acumulado, colour = Clave)) +
-                         geom_line())
-  
-hentradas[hentradas$hstrTip_ent == "INV. INICIAL",]
+
+
+
+
+
+
+
+
