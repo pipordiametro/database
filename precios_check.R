@@ -1,5 +1,7 @@
 
 source("fruta.R")
+library(ggplot2)
+library(plotly)
 
 salidas_fruta <- salidas_fruta%>%
   select(Folio ,Fecha , Destino, Cliente, Pais,
@@ -16,6 +18,8 @@ salidas <- salidas_fruta%>%
   filter(Fecha>= as.Date("2015-09-01"))%>%
   ddply(.(Folio,Fecha,Destino, Cliente, Pais, Clave_presentacion, Clave_fruta, Producto), 
         summarize, Cantidad = sum(Cantidad))
+
+
 
 folios_fecha <- unique(salidas_fruta[,c("Folio", "Fecha")])
 
@@ -66,6 +70,30 @@ precios_check <- salidas_fruta%>%
   filter(Clave_fruta %in% c(1,2,4,10))%>%
   mutate(Cajas6oz = Total*Fraccion6oz, Precio_unitario6oz = Liquidacion_aby/Total)%>%
   select(Folio, Fecha, Clave_producto, Producto, Fruta, Cliente, Pais, Total, 
-          Precio_unitario, Cajas6oz, Precio_unitario6oz)
+          Precio_unitario, Cajas6oz, Precio_unitario6oz)%>%
+  filter(Pais != "TEPEJI DEL RIO")%>%
+  filter(!Folio %in% c(1522, 543, 601, 1161, 1023))
   
+  source("precios_usda.R")  
+
+precios_semanales <- precios_diarios%>%
+  gather(Fruta, Precio_usda, -Fecha)%>%
+  mutate(Semana = as.integer(format(Fecha,format =  "%U")), 
+         Year = as.integer(format(Fecha, format = "%Y" )),
+         Semanats = (Year - 2010)*52 + Semana)%>%
+  ddply(.(Fruta, Semanats), summarize, Promedio_usda = mean(Precio_usda))
+ 
+
+precios_semanales[precios_semanales$Fruta == "ARA CN",]$Fruta <- "ARA BER"
+
+precios_cor <- merge(precios_check%>%
+                       mutate(Semana = as.integer(format(Fecha,format =  "%U")), 
+                              Year = as.integer(format(Fecha, format = "%Y" )),
+                              Semanats = (Year - 2010)*52 + Semana), 
+                     precios_semanales, by = c("Semanats", "Fruta"), all.x = TRUE)%>%
+  filter(Fruta != "ZAR ORG")%>%
+  filter(Cliente == "HBF INTERNATIONAL LLC")
   
+ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_unitario, colour = Cliente)) + 
+  geom_point() + geom_abline(slope = 1))
+                     
