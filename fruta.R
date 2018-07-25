@@ -58,6 +58,6 @@ rm(hsalidas, bsalidas)
 reembales <- myfetch("tbReembalajes")%>%
   filter(strCan_cel == "NO")%>%
   rename(Fecha = fecFec_mov,  Cantidad_anterior = intCan_ant, 
-         Producto_anterior = intProd_ant, 
-         Cantidad_nueva= intCan_nvo, Producto_nuevo = intProd_nvo)
+         Producto_anterior = intProd_ant, Cantidad_nueva= intCan_nvo, Producto_nuevo = intProd_nvo)%>%
+  mutate(Fecha = as.Date(Fecha))
 

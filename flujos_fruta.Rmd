@@ -1,0 +1,24 @@
+---
+title: "Flujos Fruta"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+ 
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+library(knitr)
+read_chunk("flujos_fruta.R")
+```
+
+```{r precios, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+<<datos>>
+  
+plot
+
+totales
+  
+```

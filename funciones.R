@@ -2,10 +2,11 @@ library(RODBC)
 library(plyr)
 library(dplyr)
 myfetch <- function(nombre,base = FALSE){
-  if(base == TRUE){
+  if(unname(Sys.info()["nodename"] == "DESKTOP-LQ3B302") ){
     con <- odbcConnect(dsn = "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017")
-    var <- sqlfetch(con, nombre, stringsAsFactor = FALSE) 
-    odbcClose(con)     
+    var <- sqlFetch(con, nombre, as.is = TRUE) 
+    odbcClose(con)
+    write.csv(var, paste0("proyecto/", nombre, ".csv"))
     }else{
       var <- read.csv(paste0("proyecto/", nombre,".csv"))
    
@@ -77,4 +78,12 @@ get.precios <- function(){
     
     write.csv(fruit,paste0("Precios/files/",fruta,".csv"))
   }
+}
+
+backup <- function(){
+  con <- odbcConnect(dsn = "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017")
+  for (var in sqlTables(con)$TABLE_NAME){
+    write.csv(sqlFetch(con,var, as.is = TRUE),paste0("proyecto/",var,".csv"))
+  }
+  odbcClose(con)
 }

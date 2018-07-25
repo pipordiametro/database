@@ -20,52 +20,71 @@ library(knitr)
 read_chunk('geo.R')
 ```
 
-###GRAFICO DE CAJAS ENVIADAS SEGUN USDA
-
-Se eliminaron::
-               filter(!(Semana == 26 & Year == 2017))%>%
-               filter(!(Semana == 25 & Year == 2017))%>%
-               filter(!(Semana == 37 & Year == 2015)) 
-
-
-
-
-``` {r anab.ts, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
-
-<<datos>>
-  anab.ts.plot
-print(plot(anab.decomp))
-anab.seasonal.plot
-
-
-``` 
-
 
 ###PRODUCCION ALPASA CONVERTIDO A 6 OZ
 ``` {r ALPASA 6OZ, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+<<datos>>
+  
+plot.ts(alp.ts)
 alp.ts.plot
+plot(alp.decompose)
 alpcum.plot
-plot(alp.decompose) 
 
-``` 
-``` {r alpasamoney , echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+#-----------PAGOS-------------
+
+plot.ts(alpmoney.ts)
 alpmoney.ts.plot
 alpmoneycum.plot
-plot(alpmoney.decompose) 
-
-``` 
+plot(alpmoney.decompose)
 
 
-``` {r comparativo, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+```
 
-comp.regre.plot
-ratio.ts.plot
 
-``` 
+###  PEDIDOS ESPECIALES
 
-``` {r precios, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+``` {r ESPECIALES, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
 
-comp.regre.plot
-ratio.ts.plot
+`ROUGE PARFUM12x125G.plot`
 
-``` 
+PUNNET12x150G.plot
+
+`NATURES PARTNER12x18OZ.plot`
+
+`DEL MONTE12x6OZ.plot`
+
+HURSTS8x12OZ.plot
+
+HURSTS12x4.4OZ.plot
+
+ALPASA12x4.4OZ.plot
+
+ALPASA12x6OZ.plot
+
+ggplotly(pedidos_especiales.plot) 
+
+```
+
+
+# CONTADO VS FINANCIADO
+
+``` {r CONADO VS FINANCEADO, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.align = 'center'}
+
+pie.plot
+
+piemoney.plot
+
+cajas.semana.plot
+
+porcentajescajas.plot
+
+cajas.acumuladas.plot
+
+money.semana.plot
+
+porcentajescajas.plot
+
+money.acumuladas.plot
+
+
+```

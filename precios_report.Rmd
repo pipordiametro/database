@@ -1,0 +1,51 @@
+---
+title: <center><br><font size = "5">"REPORTE DE PRECIOS"</font> </center>
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+ 
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+library(knitr)
+read_chunk("precios_report.R")
+```
+ 
+ 
+<div align= "right" ><font size = "4"> Fecha:`r Sys.time()`</div>
+
+#ANALISIS DE PRECIOS
+
+```{r precios, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+<<datos>>
+
+precios_zar.plot  
+
+precios_ara.plot
+
+pais.plot
+
+cliente.plot
+
+mix.plot
+
+global.plot
+
+regresion.plot
+
+summary(preciolm2)
+
+precios_regresion.plot
+
+registros%>%
+     filter(Fecha > as.Date("2017-09-01"))%>%
+   filter(Semana > 25 )%>%
+     filter(Fruta == "ZARZAMORA")%>%
+     filter(Peso == 6.0)%>%
+  filter(Semana < 38)
+
+
+
+```

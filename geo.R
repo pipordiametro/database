@@ -1,54 +1,40 @@
 ## @knitr datos
 
-library(RODBC)
-library(plyr)
-library(dplyr)
+library(forecast)
 library(ggplot2)
-library(plotly)
-library(reshape2)
-library(scales)
-library(plotly)
-library(kableExtra)
-library(knitr)
-library(fpp)
-library(PerformanceAnalytics)
-library(RCurl)
-library(XML)
-
+library(tidyr)
 
 source("registros.R",encoding="utf-8")
-
-#filter(!(Cajasanab == 0))
-
-#plot todos los campos
-anabmelt <- melt(anab, c("Year", "Semana"), value.name = "Factor")%>%
-  filter(!variable == "Semanats")
-
-#serie real
-
-anab.ts <- ts(anab$Real, c(2014,47), frequency = 52)
-anab.ts.plot<- ggplotly(ggseasonplot(anab.ts) + labs(title ="Enviado Reale Anaberries"))
-anab.decomp <- decompose(anab.ts, "additive")
-anab.seasonal.plot <- ggplotly(ggseasonplot(anab.decomp$seasonal))
+registros <- registros%>%
+  filter(Fruta == "ZARZAMORA")%>%
+  filter(!(Semana == 26 & Year == 2017))%>%
+  filter(!(Semana == 25 & Year == 2017))%>%
+  filter(!(Semana == 37 & Year == 2015))
 
 
 
-#suma semanas alpasa
+#ALPASA
 
 alp <- ddply(registros[!is.na(registros$Cajas),],.(Year, Semana), summarize, Total = sum(Cajas))
 alp$Semana <- as.integer(alp$Semana)
 alp$Semanats <- alp$Semana + (alp$Year - 2013)*52
-#alp <- filter(alp,!Semanats == 128)
+
+#CONSTRUCCION DE LA SERIE TEMPORAL
 
 semanas <- data.frame(c(39:max(alp$Semanats)))
 names(semanas) <- c("Semanats")
 alp.ts <-   merge(alp, semanas, all.y = TRUE)%>%
   select(Total)
 
+
 alp.ts[is.na(alp.ts$Total),] <- 0
 
-alp.ts <-   ts(alp.ts$Total, c(2014, 5), frequency = 52)
+alp.ts <-   ts(alp.ts$Total, c(2013, 39), frequency = 52)
+#PLOTEO
+
 alp.ts.plot <- ggplotly(ggseasonplot(alp.ts) +labs (title = "PRODUCCION ALPASA EN 6 OZ"))
+
+#DESCOMPOSICION
 alp.decompose <- decompose(alp.ts, "additive")
 
 #alpasa acumulativo
@@ -78,23 +64,32 @@ alpcum.plot <- ggplot(alpcum, aes(x = Semanatemp, y = Acumulado, colour = Tempor
   geom_area(data =alpcum[alpcum$Temporada == "2016-2017",], alpha = 0.2) +
   geom_area(data =alpcum[alpcum$Temporada == "2017-2018",], alpha = 0.2) +
   geom_line()
-
+#pLOTEO
 alpcum.plot <- ggplotly(alpcum.plot)  
-  #porcentajes dinero 
+
+
+#            PORCENTAJES DINERO
+
+
 
 alpmoney <- ddply(registros[!is.na(registros$Aceptadas),],.(Year, Semana), summarize, Total = sum(Aceptadas*Precio))
 alpmoney$Semana <- as.integer(alpmoney$Semana)
 alpmoney$Semanats <- alpmoney$Semana + (alpmoney$Year - 2013)*52
 #alp <- filter(alp,!Semanats == 128)
 
-semanas <- data.frame(c(39:max(alpmoney$Semanats)))
-names(semanas) <- c("Semanats")
+semanas <- data.frame(Semanats = c(39:max(alpmoney$Semanats)))
+
+
+#Serie Temporal
 alpmoney.ts <-   merge(alpmoney, semanas, all.y = TRUE)%>%
   select(Total)
 
 alpmoney.ts[is.na(alpmoney.ts$Total),] <- 0
 
-alpmoney.ts <-   ts(alpmoney.ts$Total, c(2014, 5), frequency = 52)
+alpmoney.ts <-   ts(alpmoney.ts$Total, c(2013, 39), frequency = 52)
+
+#Ploteo
+
 alpmoney.ts.plot <- ggplotly(ggseasonplot(alpmoney.ts) +labs (title = "PAGOS ALPASA"))
 
 
@@ -116,7 +111,7 @@ alpmoneycum <- alpmoneycum%>%
   ungroup()
 
 
-
+#Ploteo
 
 alpmoneycum.plot <- ggplot(alpmoneycum, aes(x = Semanatemp, 
                                             y = Acumulado, 
@@ -130,128 +125,55 @@ alpmoneycum.plot <- ggplot(alpmoneycum, aes(x = Semanatemp,
 
 alpmoneycum.plot <- ggplotly(alpmoneycum.plot)
 
+#Descomposicion
+
+
 alpmoney.decompose <- decompose(alpmoney.ts)
 
 
 
-#comparativo
 
 
 
-comp <- merge(anab[,c( "Semanats","Real")],
-              alp%>%
-                mutate(Semanats = Semanats), by.x = c( "Semanats"), 
-              by.y = c( "Semanats"),all.x = TRUE)%>%
-  select(Semanats, Real, Total, Year)%>%
-  filter(Total < Real)%>%
-  merge(semanas, all.y = TRUE)%>%
-  filter((Semanats >= 133) & !(Semanats %in% c(233,232,231,264)))%>%
-  mutate(Ratio = Total/Real)
+prueba6 <- ddply(registros,.(Year,Semana,Producto), summarize, Total = sum(Cajas))
+
+productos <- unique(registros[registros$Fecha > as.Date("2017-09-01") & registros$Fruta == "ZARZAMORA",]$Producto)
+
+for (var in productos){
+  assign(var, prueba6[prueba6$Producto == var,]%>%
+           merge(merge(data.frame(Year= c(2014:2018)), data.frame(Semana = c(1:52))), 
+                 all.y = TRUE)%>%
+           mutate(Total = ifelse(is.na(Total), 0, Total)))
   
+  assign(paste0(var,".plot"), ggplotly(ggplot(get(var), aes(x = Semana, y = Total, colour = as.factor(Year))) + 
+                                         geom_line() + labs(title = var)))
+}
 
-
-
-#ts ratio real
-
-ratio.ts <- ts(comp$Ratio, c(1915,29), frequency = 52)
-
-
-fitcomp <- lm(data = comp%>%
-                filter(!is.na(Ratio)), formula = comp$Total~  0 + comp$Real)
-
-
-
-
-comp.regre.plot <- ggplot(comp, aes( x = Real, y = Total)) +
-  geom_point() +   geom_abline(intercept = 0, 
-                               slope=fitcomp$coefficients[1],
-                               color='red') +
-  labs(title = paste("Porcentaje =", fitcomp$coefficients[1]))
-
-
-
-ratio.ts.plot<- ggplotly(ggseasonplot(ratio.ts) + 
-                           geom_hline(yintercept =  summary(fitcomp)$coefficients[1,"Estimate"],
-                                      alpha = .75, colour = "grey"))
+pedidos_especiales <- registros%>%
+  mutate(Especial = ifelse(Peso != 6.0, "Seisoz", "Otro"),
+         Semanats = (Year - 2013)*52 + Semana)%>%
+  select(Fecha, Temporada, Semanats, Aceptadas, Especial, Cajas)%>%
+  ddply(.(Temporada, Semanats , Especial), summarize, Cajas6oz = sum(Cajas))%>%
+  filter(!is.na(.$Especial))%>%
+  spread(Especial, Cajas6oz, fill = 0)%>%
+  mutate(Total6oz = Seisoz + Otro)%>%
+  select(-Seisoz)%>%
+  gather(Tipo, Total6oz, -Semanats, -Temporada)
 
 
 
 
-#comp.regre.plot <- ggplotly(ggplot(comp[!is.na(comp$Ratio),], 
-#                                  aes(Semana, Ratio)) + 
-#                             geom_point(aes(colour = Year)) + 
-#                            geom_line(aes(colour = Year)))
-
-
-#precios usda
+pedidos_especiales.plot <- ggplot(pedidos_especiales, aes(x = Semanats, y = Total6oz, colour = Tipo)) + geom_line()
 
 
 
-fruta <- "Blackberries"
 
-fruit <- read.csv(paste0("Precios/",fruta,".csv"))
-fruit$reportDate <- as.Date(fruit$reportDate,format="%Y-%m-%d")
-fruit <- fruit[,-c(1)]
-conv <- fruit[!fruit$organic=="Organic",] #organica%>%
-conv <- conv[conv$packageDesc=="flats 12 6-oz cups with lids",]
-#conv <- conv[grep("MEXICO",conv$cityName),] #mexicana
-#View(tail(conv[with(conv,order(reportDate)),c("reportDate","lowPriceMin","highPriceMax","mostlyLowMin","mostlyHighMax")]))
-conv$precio <- (as.numeric(conv$highPriceMax)+as.numeric(conv$lowPriceMin))/2 #preciomedio
-conv <- conv[conv$packageDesc=="flats 12 6-oz cups with lids",]
-conv$origen <-"otro"
-procedencia <- data.frame(cbind(c("MEXICO","CHILE","PERU","ARGENTINA","URUGUAY","CALIFORNIA","FLORIDA","MICHIGAN","GEORGIA","CAROLINA","OREGON","COLUMBIA","MEXICO"),c("MEXICO","CHILE","PERU","ARGENTINA","URUGUAY","USA","USA","USA","USA","USA","USA","USA","MEXICO")))
-names(procedencia) <- c("origen","pais")
-#tryCatch({
-#  for(var in procedencia$origen){
-#    conv[grep(var,conv$cityName),]$origen <- var
- # }
-#},error=function(e){})
-#conv <- merge(conv,procedencia)
-conv <- conv[!is.na(conv$precio),]
-#conv<-conv[conv$pais=="MEXICO",]
-#data<-conv[conv$pais=="MEXICO",]
-#ggplot(data,aes(data$reportDate,data$precio))+geom_point()
-
-conv <- conv[,c("reportDate","precio")]
-conv <- unique(conv)
-conv <- conv[!is.na(conv$precio),]
-prom <- ddply(conv,.(reportDate),summarize,preciomedio=mean(precio))
-dias <-  as.Date(c(julian(min(prom$reportDate)):julian(max(prom$reportDate))))
-dias <- as.data.frame(dias)
-names(dias) <- c("reportDate")
-ts <- merge(dias,prom,all.x = TRUE)
-ts <- as.xts(x=ts$preciomedio,order.by = ts$reportDate)
-ts <- na.approx(ts)
-rs <- as.data.frame(cbind(as.Date(index(ts)),coredata(ts)))
-names(rs) <- c("Fecha", "Precio")
-rs$Fecha <- as.Date(rs$Fecha, origin = "1970-01-01")
-rs$Semana <-  format(rs$Fecha, format = "%U")
-rs$Year <- format(rs$Fecha, format = "%Y")
-rs$Year <- as.integer(rs$Year)
-rs$Semana <- ifelse(rs$Semana == "53", "52", rs$Semana)
-rs$Semana <- ifelse(rs$Semana == "00", rs$Year - 1 , rs$Semana)
-rs$Semana <- ifelse(rs$Semana == "00", rs$Semana == 52, rs$Semana)
-
-#diario
-
-prec.ts <- ts(rs$Precio, c(2010,113), frequency = 365.25) 
-prec.ts.plot <- ggplotly(ggseasonplot(prec.ts))
-
-
-#semanal
-
-semprec <- ddply(rs,.(Year, Semana), summarize, Promedio = mean(Precio))
-semprec$Semana <- as.integer(semprec$Semana)
-semprec$Semanats <- semprec$Semana + (semprec$Year - 2010)*52
-#semprec <- filter(semprec, Semanats > 28) 
-
-prec.sem.ts <- ts(semprec$Promedio, c(2010, 16),frequency = 52)
-prec.sem.ts.plot <- ggplotly(ggseasonplot(prec.ts))
 
 # COntado, Financiados y Huertas Propias
 
 temp20172018 <- registros[registros$Fecha > as.Date("2017-09-01"),]
 prod20172018 <- unique(temp20172018$Clave) 
+
 
 financeado <- data.frame(Clave = c(21,30,33,47,51,55,54,80,93,102,112,113,114,126,135,152,
                                    153,156,158,161,184,188,192,194,206,218,221,230,232,236,
@@ -302,8 +224,13 @@ pie.plot <- ggplot(porcconta, aes(x = "", y = Porcentaje, fill = Tipo)) +
   geom_text(aes(y = Porcentaje/3 + c(0, cumsum(Porcentaje)[-length(Porcentaje)])), 
             label = percent(porcconta$Porcentaje), size = 5)
 
+#pie.plot
 
-#money por tipo
+#pie(porcconta$Porcentaje, 
+#    labels = paste(porcconta$Tipo,"%",
+#                   round(porcconta$Porcentaje, 2)), 
+#    col = rainbow(length(porcconta$Tipo)))
+#Porcentajes dinero
 
 moneyprod <- ddply(temp20172018,. (Clave), summarize, Total = sum(Aceptadas*Precio))%>%
   merge(productores, all.x = TRUE)
@@ -323,6 +250,11 @@ piemoney.plot <- ggplot(porcmoney, aes(x = "", y = Porcentaje, fill = Tipo)) +
   geom_text(aes(y = Porcentaje/3 + c(0, cumsum(Porcentaje)[-length(Porcentaje)])), 
             label = percent(porcmoney$Porcentaje), size = 5)
 
+#pie(porcmoney$Porcentaje, 
+#    labels = paste(porcmoney$Tipo,"%",
+#                   round(porcmoney$Porcentaje, 2)), 
+#    col = rainbow(length(porcmoney$Tipo)))
+
 #cajas por semana separadas por TIPO
 
 
@@ -334,11 +266,7 @@ cajasporsemana <- merge(productores,temp20172018, all.x= TRUE)%>%
 cajasporsemana <- cajasporsemana[!is.na(cajasporsemana$Total),]%>%
   mutate(Semanatemp =  (as.integer(Semana) + 18)%%52,
          Semana = as.integer(Semana))%>%
-  arrange(Semanatemp)%>%
-  merge(merge(data.frame(Tipo = unique(productores$Tipo)), data.frame(Semanatemp = c(1:52))),
-                           all.y = TRUE)
-
-cajasporsemana[is.na(cajasporsemana$Total),]$Total <- 0
+  arrange(Semanatemp)
 
 cajas.semana.plot <- ggplotly(ggplot(cajasporsemana, 
                                      aes(x =  factor(Semanatemp, 
@@ -406,11 +334,7 @@ moneyporsemana <- merge(productores,temp20172018, all.x= TRUE)%>%
 moneyporsemana <- moneyporsemana[!is.na(moneyporsemana$Total),]%>%
   mutate(Semanatemp =  (as.integer(Semana) + 18)%%52,
          Semana = as.integer(Semana))%>%
-  arrange(Semanatemp)%>%
-  merge(merge(data.frame(Tipo = unique(productores$Tipo)), data.frame(Semanatemp = c(1:52))),
-        all.y = TRUE)
-
-moneyporsemana[is.na(moneyporsemana$Total),]$Total <- 0
+  arrange(Semanatemp)
 
 money.semana.plot <- ggplot(moneyporsemana, 
                             aes(x =  factor(Semanatemp, 
@@ -463,4 +387,9 @@ money.acumuladas.plot <- ggplotly(ggplot(moneyporsemana,
                                     geom_col(data = moneyporsemana[moneyporsemana$Tipo == "FINANCEADO",],  alpha = .5) +
                                     geom_col(data = moneyporsemana[moneyporsemana$Tipo == "GRUPO ALPASA",],  alpha = .5) +
                                     geom_col(data = moneyporsemana[moneyporsemana$Tipo == "SIN CLASIFICAR",],  alpha = .5))
+
+
+
+
+
 
