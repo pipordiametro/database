@@ -78,3 +78,4 @@ get.precios <- function(){
     write.csv(fruit,paste0("Precios/files/",fruta,".csv"))
   }
 }
+
