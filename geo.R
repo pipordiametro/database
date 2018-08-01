@@ -32,7 +32,7 @@ alp.ts[is.na(alp.ts$Total),] <- 0
 alp.ts <-   ts(alp.ts$Total, c(2013, 39), frequency = 52)
 #PLOTEO
 
-alp.ts.plot <- ggplotly(ggseasonplot(alp.ts) +labs (title = "PRODUCCION ALPASA EN 6 OZ"))
+alp.ts.plot <- ggplotly(ggseasonplot(alp.ts) +labs (title = "ENTRADAS ALPASA EN 6 OZ"))
 
 #DESCOMPOSICION
 alp.decompose <- decompose(alp.ts, "additive")
@@ -63,7 +63,7 @@ alpcum.plot <- ggplot(alpcum, aes(x = Semanatemp, y = Acumulado, colour = Tempor
   geom_area(data =alpcum[alpcum$Temporada == "2015-2016",], alpha = 0.2) +
   geom_area(data =alpcum[alpcum$Temporada == "2016-2017",], alpha = 0.2) +
   geom_area(data =alpcum[alpcum$Temporada == "2017-2018",], alpha = 0.2) +
-  geom_line()
+  geom_line() +labs(title = "Entradas acumuladas de zar-cn convertido a 6oz")
 #pLOTEO
 alpcum.plot <- ggplotly(alpcum.plot)  
 
@@ -317,7 +317,10 @@ cajas.acumuladas.plot <- ggplotly(ggplot(cajasporsemana,
                                     geom_col(data = cajasporsemana[cajasporsemana$Tipo == "CONTADO",],  alpha = .5) + 
                                     geom_col(data = cajasporsemana[cajasporsemana$Tipo == "FINANCEADO",],  alpha = .5) + 
                                     geom_col(data = cajasporsemana[cajasporsemana$Tipo == "SIN CLASIFICAR",],  alpha = .5) +
-                                    geom_col(data = cajasporsemana[cajasporsemana$Tipo == "GRUPO ALPASA",],  alpha = .5))
+                                    geom_col(data = cajasporsemana[cajasporsemana$Tipo == "GRUPO ALPASA",],  alpha = .5)+
+                                    labs(title= "Acumulado de cajas por tipo de productor", x = "Semana") +
+                                    scale_y_continuous(name="Cajas 6oz", labels = scales::comma))
+                                              
 
 
 

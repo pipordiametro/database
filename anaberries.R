@@ -1,3 +1,29 @@
+#load Anaberries
+anab <- read.csv("Anaberries/anaberries.csv", stringsAsFactors = FALSE)%>%
+  mutate(Fecha1 = as.Date(substr(Fecha, 3, 12), format = "%Y-%m-%d"),
+         Fecha2 = as.Date(substr(Fecha, 16, 25), format = "%Y-%m-%d"),
+         Year = as.integer(format(Fecha1, format = "%Y")),
+         Semanats = Semana + (Year - 2013)*52,
+         Temporada = ifelse((Fecha1 >= as.Date("2013-09-01") & Fecha1 < as.Date("2014-09-01")), "2013-2014",
+                            ifelse((Fecha1 >= as.Date("2014-09-01") & Fecha1 < as.Date("2015-09-01")), "2014-2015",
+                                   ifelse((Fecha1 >= as.Date("2015-09-01") & Fecha1 < as.Date("2016-09-01")), "2015-2016",
+                                          ifelse((Fecha1 >= as.Date("2016-09-01") & Fecha1 < as.Date("2017-09-01")), "2016-2017",
+                                                 ifelse((Fecha1 >= as.Date("2016-09-01") & Fecha1 < as.Date("2018-09-01")), "2017-2018",
+                                                        ifelse((Fecha1 >= as.Date("2017-09-01") & Fecha1 < as.Date("2019-09-01")), "2018-2019",NA)
+                                                 )
+                                          )
+                                   )
+                            )))%>%
+  transmute(Year = Year, 
+            Semana = ifelse(Semana == 53 , 52, Semana),
+            Semanats = ifelse(Year == 2015, Semanats - 1, Semanats), 
+            Real = as.numeric(gsub(",", "", Enviado.Real..cajas., fixed = TRUE)),
+            Pronostico = as.numeric(gsub(",", "", Pronóstico..cajas., fixed = TRUE)),
+            USDA = as.numeric(gsub(",", "", USDA..cajas., fixed = TRUE)),
+            Temporada = Temporada)
+
+
+
 
 # -----------  ANABERRIES
 anabmelt <- melt(anab, c("Year", "Semana"), value.name = "Factor")%>%

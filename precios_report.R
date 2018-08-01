@@ -53,7 +53,7 @@ zar.cn.ts <- ts(precios_semanales[precios_semanales$Fruta == "ZAR CN",]$Promedio
 
 ara.cn.ts <- ts(precios_semanales[precios_semanales$Fruta == "ARA BER",]$Promedio_usda, c(2010, 1), frequency = 52)
 
-precios_zar.plot <- ggplotly(ggseasonplot(zar.cn.ts))
+precios_zar.plot <- ggplotly(ggseasonplot(zar.cn.ts) + labs(title = "Precio promedio por semana en usda"))
 
 precios_ara.plot <- ggplotly(ggseasonplot(ara.cn.ts))
 
@@ -68,10 +68,12 @@ precios_cor <- merge(precios_check%>%
   select(Folio, Fecha, Semanats, Fruta, Producto , Fraccion6oz, Cliente, Destino, Cantidad,  Promedio_usda, Precio_real)
 
 pais.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real, colour = Destino)) + 
-           geom_point()  + geom_smooth(method = "lm", se = FALSE)+ geom_abline(slope = 1, linetype = "dotted"))
+           geom_point()  + geom_smooth(method = "lm", se = FALSE)+ geom_abline(slope = 1, linetype = "dotted") + 
+             labs(title = "Correlación de precios por destino", y = "Precio liquidado"))
 
 cliente.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real, colour = Cliente)) + 
-                        geom_point()  + geom_smooth(method = "lm") + geom_abline(slope = 1, linetype = "dotted"))
+                        geom_point()  + geom_smooth(method = "lm") + geom_abline(slope = 1, linetype = "dotted") +
+                          labs(title = "Correlación de precios por cliente", y = "Precio liquidado"))
 
 mix.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real, colour = paste(Cliente, Destino))) + 
                        geom_point()  + geom_smooth(method = "lm", se = FALSE) + geom_abline(slope = 1, linetype = "dotted"))
@@ -157,4 +159,4 @@ histograma_precios <- registros %>%
   ddply(.(Precio6oz), summarize, Total = sum(Aceptadas))
 
 
-ggplot(histograma_precios, aes(x = Precio6oz, y = Total)) + geom_col()
+ggplot(histograma_precios, aes(x = Precio6oz, y = Total)) + geom_col() + scale_y_continuous(name="Cajas 6oz", labels = scales::comma)

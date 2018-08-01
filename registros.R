@@ -12,39 +12,39 @@ library(PerformanceAnalytics)
 library(RCurl)
 library(XML)
 
+source("funciones.R")
 
 
-con <- odbcConnect(dsn = "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017")
-emp <- sqlFetch(con, "tbRecFruEmp", as.is = TRUE)%>%
+emp <- myfetch("tbRecFruEmp")%>%
   filter(strCan_cel == "NO")%>%
   select(intNum_reg, fecFec_not, intCla_pro, intCen_aco)
-reg <- sqlFetch(con, "tbRecFruEmpReg",as.is = TRUE)%>%
+reg <- myfetch("tbRecFruEmpReg")%>%
   select(intNum_reg, intCan_tid, intCan_rec, intCla_prod, intNum_sem, floPre_uni)
 reg <- merge(emp, reg)
 rm(emp) 
 
-prod <- sqlFetch(con, "tbProductores", as.is = TRUE)%>%
+prod <- myfetch("tbProductores")%>%
   filter(strCan_cel == "NO")%>%
   select(intCla_pro, strNom_bre, strApe_pat, strApe_mat)
 
 
-emb <- sqlFetch(con, "tbProductos", as.is = TRUE)%>%
+emb <- myfetch("tbProductos")%>%
   mutate(intCla_prod = strCla_prod)%>%
   select(intCla_prod, strNom_bre, intCla_pre, intCla_fru)
 
-pres <- sqlFetch(con, "tbPresentaciones", as.is = TRUE)%>%
+pres <- myfetch("tbPresentaciones")%>%
   select(intCla_pre, intCan_tid, intPes_o, strUni_med)
 
-fruta <- sqlFetch(con, "tbFrutas")%>%
+fruta <- myfetch("tbFrutas")%>%
   select(intCla_fru,strNom_bre )%>%
   transmute(intCla_fru = intCla_fru,
             Fruta = strNom_bre)
-acopios <- sqlFetch(con, "tbAlmacenes")%>%
+acopios <- myfetch("tbAlmacenes")%>%
   select(intCla_alm,strNom_bre)%>%
   transmute(intCla_alm = intCla_alm,
             Acopio = strNom_bre)
 
-odbcClose(con)
+
 
 productos <- merge(emb, pres)%>%
   merge(fruta)
@@ -88,30 +88,6 @@ registros <-  registros <- merge(reg, productos, all.x = TRUE, by.x = "intCla_pr
   )
 
 
-#load Anaberries
-anab <- read.csv("Anaberries/anaberries.csv", stringsAsFactors = FALSE)%>%
-  mutate(Fecha1 = as.Date(substr(Fecha, 3, 12), format = "%Y-%m-%d"),
-         Fecha2 = as.Date(substr(Fecha, 16, 25), format = "%Y-%m-%d"),
-         Year = as.integer(format(Fecha1, format = "%Y")),
-         Semanats = Semana + (Year - 2013)*52,
-         Temporada = ifelse((Fecha1 >= as.Date("2013-09-01") & Fecha1 < as.Date("2014-09-01")), "2013-2014",
-                            ifelse((Fecha1 >= as.Date("2014-09-01") & Fecha1 < as.Date("2015-09-01")), "2014-2015",
-                                   ifelse((Fecha1 >= as.Date("2015-09-01") & Fecha1 < as.Date("2016-09-01")), "2015-2016",
-                                          ifelse((Fecha1 >= as.Date("2016-09-01") & Fecha1 < as.Date("2017-09-01")), "2016-2017",
-                                                 ifelse((Fecha1 >= as.Date("2016-09-01") & Fecha1 < as.Date("2018-09-01")), "2017-2018",
-                                                        ifelse((Fecha1 >= as.Date("2017-09-01") & Fecha1 < as.Date("2019-09-01")), "2018-2019",NA)
-                                                 )
-                                          )
-                                   )
-                            )))%>%
-  transmute(Year = Year, 
-            Semana = ifelse(Semana == 53 , 52, Semana),
-            Semanats = ifelse(Year == 2015, Semanats - 1, Semanats), 
-            Real = as.numeric(gsub(",", "", Enviado.Real..cajas., fixed = TRUE)),
-            Pronostico = as.numeric(gsub(",", "", Pronóstico..cajas., fixed = TRUE)),
-            USDA = as.numeric(gsub(",", "", USDA..cajas., fixed = TRUE)),
-            Temporada = Temporada)
-         
 
-#filter(!(Cajasanab == 0))
+
 rm(list = c("acopios", "productos", "reg"))

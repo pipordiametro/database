@@ -5,24 +5,26 @@ productos <- myfetch("tbProductos")
 names(productos) <- paste0("p", names(productos))
 
 productos <- productos%>%
-  rename(Clave_presentacion = pintCla_pre, Clave_fruta = pintCla_fru, 
-         Nombre_producto = pstrNom_bre)
+  filter(pstrCan_cel == "NO")%>%
+  transmute(Clave_presentacion = pintCla_pre, Clave_fruta = pintCla_fru, 
+            Clave_producto = pstrCla_prod,Nombre_producto = pstrNom_bre)
 
 presentaciones <- myfetch("tbPresentaciones")%>%
-  rename(Clave_presentacion = intCla_pre, Clams = intCan_tid, 
+  filter(strCan_cel == "NO")%>%
+  transmute(Clave_presentacion = intCla_pre, Clams = intCan_tid, 
          Peso = intPes_o, Unidad = strUni_med )%>%
-  mutate(Presentacion = paste0(Clams,"X", Peso, Unidad))%>%
-  filter(strCan_cel == "NO")
+  mutate(Presentacion = paste0(Clams,"X", Peso, Unidad))
+  
 
 frutas <- myfetch("tbFrutas")%>%
-  rename(Clave_fruta = intCla_fru)%>% 
-  mutate(Fruta = paste(strNom_cto,strTip_cto))
+  transmute(Clave_fruta = intCla_fru, Nombre = strNom_bre, Nombre_corto = strNom_cto, 
+            Variedad = strVar_ied, Variedad_corto = strVar_cto, Tipo_fruta = strTip_o,
+            Tipo_corto = strTip_cto)%>% 
+  mutate(Fruta = paste(Nombre_corto,Tipo_corto))
 
 productos <- merge(productos, presentaciones, all.x = TRUE)%>%
   merge(frutas, by = "Clave_fruta", all.x = TRUE)%>%
-  rename(Clave_producto = pstrCla_prod,
-         Fruta = Fruta)%>%
-  mutate(Producto = paste0(Nombre_producto, Presentacion),
+  mutate(Producto = paste0(Fruta,"_", Presentacion, "_", Nombre_producto),
          Fraccion6oz = ifelse(Unidad == "G", Clams*Peso*0.035274/72  , Clams * Peso/72))
 
 
