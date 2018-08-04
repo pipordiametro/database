@@ -11,8 +11,8 @@ productos <- productos%>%
 
 presentaciones <- myfetch("tbPresentaciones")%>%
   filter(strCan_cel == "NO")%>%
-  transmute(Clave_presentacion = intCla_pre, Clams = intCan_tid, 
-         Peso = intPes_o, Unidad = strUni_med )%>%
+  transmute(Clave_presentacion = intCla_pre, Clams = as.integer(intCan_tid), 
+         Peso = as.numeric(intPes_o), Unidad = strUni_med )%>%
   mutate(Presentacion = paste0(Clams,"X", Peso, Unidad))
   
 

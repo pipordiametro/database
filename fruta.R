@@ -13,7 +13,7 @@ entradas_fruta <- merge(hentradas, bentradas, by.x = "hintNum_reg", by.y = "bint
             Clave_acopio = hintCen_aco, Cantidad = bintCan_tid, Rechazadas = bintCan_rec, Clave_producto =  bintCla_prod,
          Pallet = bintNum_pal, Precio = bfloPre_uni, Numero_pago = bintNum_pag, Pagado = bstrPag_ado)%>%
   mutate(Fecha = as.Date(Fecha), Cantidad = as.integer(Cantidad), 
-         Rechazadas = as.integer(Rechazadas), Precio = as.numeric(Precio))%>%
+         Rechazadas = as.integer(Rechazadas), Precio = as.numeric(Precio), Aceptadas = Cantidad - Rechazadas)%>%
   merge(productos, all.x = TRUE)
 
 

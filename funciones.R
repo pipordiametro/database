@@ -15,6 +15,16 @@ myfetch <- function(nombre,base = FALSE){
   return(var)
 }
 
+
+
+
+myfetch2 <- function(nombre,base = FALSE){
+     var <- read.csv(paste0("proyecto/", nombre,".csv"))
+    
+  return(var)
+}
+
+
 get.precios <- function(){
   library(RCurl)
   library(XML)
