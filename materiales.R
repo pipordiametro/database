@@ -1,18 +1,68 @@
-source("funciones.R")
-library(ggplot2)
-library(plotly)
-library(plyr)
-#list.files("proyecto/")
+source("fruta.R")
 
+#Productores
+inicio_temporada <- as.Date("2017-09-01")
 
-#---------------ENTRADAS---------------------
 materiales <- myfetch("tbMateriales")%>%
-  mutate(strPre_sen =as.character(strPre_sen))
+  transmute(Clave_material = intCla_mat, Marca = strMar_ca,
+            Descripcion_corta = strDes_cor, Fabricante = strFab_ric, 
+            Unidad = strUni_med, Tipo_material = strTip_o, Clave_presentacion = intCla_pre)%>%
+  merge(presentaciones[,c("Clave_presentacion", "Presentacion")], by = "Clave_presentacion")
+
+rm(presentaciones, clientes, destinos, frutas, productos, reembales)
 
 
-#---------------------PREGUNTAR VACIOS-----------------------
+#entregas de material
 
-materiales[materiales$strPre_sen == "",]$strPre_sen <- "Vacios"
+hsalidas <- myfetch("tbAlmSal")
+bsalidas <- myfetch("tbAlmsalReg")
+names(hsalidas) = paste0("h",names(hsalidas))
+names(bsalidas) = paste0("b",names(bsalidas))
+
+entregas <- merge(hsalidas,bsalidas, by.x = "hintNum_reg", 
+                  by.y = "bintNum_reg")%>%
+  filter(bstrCan_cel == "NO")%>%
+  transmute(Clave_almacen = hintCla_alm, Tipo_salida = hstrTip_sal, Clave_productor = hintCla_pro,
+            Fecha = as.Date(hfecFec_not), Cantidad = bintCan_tid, Clave_material = bintCla_mat)%>%
+  merge(materiales, by = "Clave_material")%>%
+  filter(Tipo_salida %in% c("PRESTAMO", "."), Fecha >= inicio_temporada)%>%
+  mutate(Presentacion = ifelse(Tipo_material == "CLAMSHELL",
+                               str_match(Presentacion,
+                                         "[1,2,5,8,0,6,4.]{1,3}[O,Z,G]{1,2}"), Presentacion))%>%
+  filter(Tipo_material %in% c("CLAMSHELL", "CAJA EMP."))
+
+entregas[entregas$Presentacion == "125G",]$Presentacion <-  "4.4OZ"
+entregas[entregas$Presentacion == "12X125G",]$Presentacion <-  "12X4.4OZ"
+
+rm(hsalidas, bsalidas)
+
+#entradas de fruta
+
+
+cajas <- entradas_fruta%>%
+  select(Fecha, Presentacion, Clave_productor, Cantidad)%>%
+  filter(Fecha >= inicio_temporada)%>%
+  mutate(Tipo_material = "CAJA EMP.")
+
+clams <- entradas_fruta%>%
+  select(Fecha, Clave_productor, Cantidad, Peso, Unidad, Clams)%>%
+  mutate(Cantidad = Cantidad*Clams,
+         Presentacion = paste0(Peso,Unidad))%>%
+  select(Fecha, Presentacion, Clave_productor, Cantidad)%>%
+  filter(Fecha >= inicio_temporada)%>%
+  mutate(Tipo_material = "CLAMSHELL")
+
+recepcion <-  rbind(cajas,clams)
+
+recepcion[recepcion$Presentacion == "125G",]$Presentacion <-  "4.4OZ"
+recepcion[recepcion$Presentacion == "12X125G",]$Presentacion <-  "12X4.4OZ"
+
+
+
+rm(cajas,clams, entradas_fruta)
+
+
+##entradas
 
 hentradas <- myfetch("tbAlmEnt")
 
@@ -22,125 +72,45 @@ names(hentradas) <- paste0("h",names(hentradas))
 
 names(bentradas) <- paste0("b",names(bentradas))
 
-entradas <- merge(hentradas,bentradas, 
-                  by.x = "hintNum_reg", by.y= "bintNum_reg", all.x = TRUE)%>%
+devoluciones <- merge(hentradas,bentradas, 
+                      by.x = "hintNum_reg", by.y= "bintNum_reg", all.x = TRUE)%>%
   filter(bstrCan_cel == "NO")%>%
-  select(hfecCre_aci, bintCla_mat, bintCan_tid)%>%
+  transmute(Clave_almacen = hintCla_alm, Tipo_entrada =  hstrTip_ent, Fecha = as.Date(hfecFec_fac), 
+            Tipo_proveedor = hstrTip_prov, Cantidad = bintCan_tid , Clave_material = bintCla_mat,
+            Clave_proveedor = hintCla_prov)%>%
   merge(materiales, 
-        by.x = "bintCla_mat", by.y ="intCla_mat", all.x = TRUE)%>%
-  transmute(Fecha = as.Date(hfecCre_aci), Cantidad = bintCan_tid,  Presentacion = strPre_sen)
-
-entradas[entradas$Presentacion == "6 OZ",]$Presentacion <- "6OZ"
-entradas[entradas$Presentacion == "8X12 OZ",]$Presentacion <- "8X12OZ" 
-entradas[entradas$Presentacion == "12X125 G",]$Presentacion <- "12X4.4OZ" 
-entradas[entradas$Presentacion == "125 G",]$Presentacion <- "4.4OZ" 
-entradas[entradas$Presentacion == "12X4.4 OZ",]$Presentacion <- "12X4.4OZ"
-entradas[entradas$Presentacion == "4.4 OZ",]$Presentacion <- "4.4OZ"
-entradas[entradas$Presentacion == "18 OZ",]$Presentacion <- "18OZ"
-entradas[entradas$Presentacion == "12 X 6OZ",]$Presentacion <- "12X6OZ"
-entradas[entradas$Presentacion == "12 OZ",]$Presentacion <- "12OZ"
-entradas[entradas$Presentacion == "12 X 18 OZ",]$Presentacion <- "12X18OZ"
-entradas[entradas$Presentacion == "150 G" ,]$Presentacion <- "150G"
-entradas[entradas$Presentacion == "12 X 150 G" ,]$Presentacion <- "12X150G"
-entradas[entradas$Presentacion == "12 X 6 OZ" ,]$Presentacion <- "12X6OZ"
-
-#------------------PREGUNTAR ESTE MATERIAL---------------------
-entradas[entradas$Presentacion == "150" ,]$Presentacion <- "12X150G"
-
-entradas <- ddply(entradas,.(Fecha,Presentacion), summarize, Total = sum(Cantidad))
+        by = "Clave_material", all.x = TRUE)%>%
+  filter(Tipo_entrada == "DEVOLUCION", Fecha >  inicio_temporada)%>%
+  select(Fecha, Cantidad, Clave_proveedor, Tipo_material, Presentacion)%>%
+  mutate(Presentacion = ifelse(Tipo_material == "CLAMSHELL",
+                               str_match(Presentacion,
+                                         "[1,2,5,8,0,6,4.]{1,3}[O,Z,G]{1,2}"), Presentacion))
 
 
+devoluciones[devoluciones$Presentacion == "125G",]$Presentacion <-  "4.4OZ"
+devoluciones[devoluciones$Presentacion == "12X125G",]$Presentacion <-  "12X4.4OZ"
 
-rm(hentradas,bentradas)
+rm(hentradas, bentradas)
 
+#  enviados
+cajas <- salidas_fruta%>%
+  select(Fecha, Presentacion,Cantidad)%>%
+  filter(Fecha >= inicio_temporada)%>%
+  mutate(Tipo_material = "CAJA EMP.")
 
-#----------------------SALIDAS---------------
+clams <- salidas_fruta%>%
+  select(Fecha, Cantidad, Peso, Unidad, Clams)%>%
+  mutate(Cantidad = Cantidad*Clams,
+         Presentacion = paste0(Peso,Unidad))%>%
+  select(Fecha, Presentacion, Cantidad)%>%
+  filter(Fecha >= inicio_temporada)%>%
+  mutate(Tipo_material = "CLAMSHELL")
 
+enviados <- rbind(cajas,clams)
 
-hsalidas <- myfetch("tbAlmSal")
-bsalidas <- myfetch("tbAlmsalReg")
-names(hsalidas) = paste0("h",names(hsalidas))
-names(bsalidas) = paste0("b",names(bsalidas))
-salidas <- merge(hsalidas,bsalidas, by.x = "hintNum_reg", 
-                 by.y = "bintNum_reg")%>%
-  filter(bstrCan_cel == "NO")%>%
-  select(hfecCre_aci, bintCla_mat, bintCan_tid)%>%
-  mutate(bintCan_tid = -bintCan_tid)
-
-
-
-rm(bsalidas,hsalidas)
-#-------------fruta----------------
-hfruta <- myfetch("tbRecFruEmp")
-bfruta <- myfetch("tbRecFruEmpReg")
-names(hfruta) <- paste0("h",names(hfruta))
-names(bfruta) <- paste0("b",names(bfruta))
-productos <- myfetch("tbProductos")
-names(productos) <- paste0("p", names(productos))
-
-presentaciones <- myfetch("tbPresentaciones")
-
-embalajes <- merge(productos, presentaciones, 
-      by.x = "pintCla_pre", by.y = "intCla_pre")%>%
-  select(pstrCla_prod, intCan_tid, pintCla_fru, intPes_o, strUni_med)
-
-fruta <- merge(hfruta, bfruta, 
-      by.x = "hintNum_reg", by.y =  "bintNum_reg")%>%
-  filter(bstrCan_cel == "NO")%>%
-  transmute(Fecha = as.Date(bfecCre_aci),
-            intCla_prod = bintCla_prod,
-            Recibidas = bintCan_tid,
-            Rechazadas = bintCan_rec)%>%
-  merge(embalajes, 
-        by.x = "intCla_prod", by.y = "pstrCla_prod" , all.x = TRUE )%>%
-  mutate(Presentacion = paste0(intCan_tid,"X", intPes_o,strUni_med),
-         Cantidad = intCan_tid, Peso = intPes_o,
-         Unidad = strUni_med,
-         Aceptadas = as.integer(Recibidas)-as.integer(Rechazadas))%>%
-  select(Fecha, Aceptadas, Presentacion, Cantidad, Unidad, Peso)
-
-cajas <- fruta%>%
-  select(Fecha, Aceptadas, Presentacion)%>%
-  mutate(Tipo = Presentacion)%>%
-  select(-Presentacion)
-         
-clams <- fruta%>%
-  select(Fecha, Aceptadas, Peso, Unidad, Cantidad)%>%
-  mutate(Aceptadas = Aceptadas*Cantidad,
-         Tipo = paste0(Peso,Unidad))%>%
-  select(Fecha, Aceptadas, Tipo)
-  
-enviados <- rbind(cajas,clams)%>%
-  ddply(.(Fecha,Tipo), summarize, Total = sum(Aceptadas))%>%
-  transmute(Fecha = Fecha, Presentacion = Tipo, Total = -Total)
+rm(cajas, clams)
 
 enviados[enviados$Presentacion == "125G",]$Presentacion <-  "4.4OZ"
 enviados[enviados$Presentacion == "12X125G",]$Presentacion <-  "12X4.4OZ"
 
-rm(hfruta,bfruta)
-rm(fruta, cajas, clams)
-
-#-----------------ANALISIS---------------------
-
-datos <- rbind(entradas,enviados)%>%
-  filter(Fecha >= as.Date("2015-08-14"))
-
-flujos <- ddply(datos,.(Fecha,Presentacion), 
-                summarize, Total =sum(Total))
-
-for (var in unique(flujos$Presentacion)){
-  assign(paste0(var,".plot"), ggplotly(ggplot(flujos[flujos$Presentacion == var,], 
-                                aes(x = Fecha, y = Total)) + geom_line(colour = "cyan") + 
-                                  labs(title = var)))
-}
-
-
-
-
-
-
-
-
-
-
-
+rm(salidas_fruta)

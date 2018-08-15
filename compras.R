@@ -5,6 +5,7 @@ library(dplyr)
 library(XML)
 library(tidyr)
 library(stringr)
+library(imputeTS)
 
 compras <- data.frame()
 
@@ -117,16 +118,23 @@ compras <- unique(compras)
 
 rownames(compras) <- 1:length(compras$Valor)
 
-compras_spread<- spread(compras,Nombres, Valor)%>%
+compras_spread<- spread(compras,Nombres, Valor)
+  
+
+ 
+compras_spread <- read.csv("compras.csv")
+
+compras_spread <- compras_spread%>%  
   transmute(Folio = Folio, Nombre = as.character(Nombre), Fecha = as.Date(Fecha), Descripcion = as.character(Descripcion), 
             Cantidad = as.numeric(as.character(Cantidad)), Unidad = as.character(Unidad), ClaveUnidad = as.character(ClaveUnidad), 
             ValorUnitario = as.numeric(as.character(ValorUnitario)), ClaveProdServ = as.character(ClaveProdServ), 
-            TipoCambio = as.numeric(as.character(TipoCambio)), SubTotal = as.numeric(as.character(SubTotal)), 
+            TipoCambio = as.numeric(as.character(TipoCambio)), Importe = as.numeric(Importe), 
+            SubTotal = as.numeric(as.character(SubTotal)), 
             Total = as.numeric(as.character(Total)), Moneda = as.character(Moneda))
   
 
 compras_spread[grep("Americano", compras_spread$Moneda, ignore.case = TRUE),]$Moneda <- "USD"
-compras_spread[grep("mexicano", compras_spread$Moneda, ignore.case = TRUE),]$Moneda <- "MXN"
+compras_spread[grep("mexicano|M.N.", compras_spread$Moneda, ignore.case = TRUE),]$Moneda <- "MXN"
 
 compras_spread$Material <- NA
 compras_spread[is.na(compras_spread$ClaveProdServ),]$ClaveProdServ <- 0
@@ -189,7 +197,11 @@ compras_spread[intersect(grep("separador",
                          compras_spread$Descripcion, ignore.case = TRUE)),]$Material <- "SEPARADOR PUNNET"
 
 compras_spread[grep("INTERLOCK", compras_spread$Descripcion),]$Material <- "INTERLOCK"
+compras_spread[grep("RASPBERY", compras_spread$Descripcion, ignore.case = TRUE),]$Material <- "OTROS"
+compras_spread[compras_spread$Nombre == "CARTONES Y EMPAQUES DE ZAPOPAN SA DE CV" & 
+                 compras_spread$Cantidad < 150 &  compras_spread$Cantidad > 100,]$Material <- "OTROS"
 
+compras_spread[grep("HURST012OZBLKTOPUMXCVNA", compras_spread$Descripcion),]$Material <- "PADS"
 
 #marca
 compras_spread$Marca <- NA
@@ -200,8 +212,7 @@ compras_spread[grep("ALPASA|ALPAZA|alpasa", compras_spread$Descripcion, ignore.c
 compras_spread[grep("DEL MONTE", compras_spread$Descripcion),]$Marca <- "DEL MONTE"
 compras_spread[grep("HURTS", compras_spread$Descripcion),]$Marca <- "HURST"
 
-compras_spread2 <- compras_spread%>%
-    filter(is.na(Material)) 
+ 
 compras_spread[grep("HURTS", compras_spread$Descripcion),]$Marca <- "HURST"
 compras_spread[grep("CAT", compras_spread$Descripcion),]$Marca <- "PUNNET"
 
@@ -235,7 +246,7 @@ compras_spread$Fruta <- NA
 
 compras_spread[grep("arandano|blueberry|BLUEBERRIES", compras_spread$Descripcion, ignore.case = TRUE),]$Fruta <- "ARANDANO"
 compras_spread[grep("blackberry|mora|zarzamora|BLACK BERRIES|BLACKBERRIES|ROUGE|PUNNET|PUNET|ROUGUE", compras_spread$Descripcion, ignore.case = TRUE),]$Fruta <- "ZARZAMORA"
-compras_spread[grep("RASPBERY", compras_spread$Descripcion, ignore.case = TRUE),]$Fruta <- "FRAMBUESA"
+
 
 compras_spread[intersect(grep("blackberry|mora|zarzamora|BLACK BERRIES|BLACKBERRIES|ROUGE|PUNNET|PUNET|ROUGUE|CAT", 
                     compras_spread$Descripcion, ignore.case = TRUE),
@@ -245,18 +256,71 @@ compras_spread[intersect(grep("blackberry|mora|zarzamora|BLACK BERRIES|BLACKBERR
 
 compras_spread$Embalaje <- NA
 
-compras_spread[grep("6 OZ|6OZ|6 ONZAS", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "6OZ"
-compras_spread[grep("12 ONZAS|12 OZ|12oz ", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "12OZ"  
+compras_spread[grep("6 OZ|6OZ|6 ONZAS|3705", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "6OZ"
+compras_spread[grep("12 ONZAS|12 OZ|12oz| 12oz", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "12OZ"  
 compras_spread[grep("4x4|4.4", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "4.4OZ"
 compras_spread[grep("18 OZ|18OZ|18 ONZAS", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "18OZ"
 compras_spread[grep("PUNNET|150 GRS|PUNET|150G|CAT", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "PUNNET"
 compras_spread[grep("ROUGE|ROUGUE", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "ROUGE"
+compras_spread[grep("4x5", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <-  "6OZ"
+
+compras_spread <- compras_spread%>%
+  mutate(Embalaje = ifelse(Embalaje == "6OZ" & Material == "CAJAS", "12X6OZ", 
+                           ifelse(Embalaje == "PUNNET" & Material == "CAJAS", "12X150G",
+                                  ifelse(Embalaje == "12OZ" & Material == "CAJAS", "8X12OZ",
+                                         ifelse(Embalaje == "4.4OZ" & Material == "CAJAS", "12X4.4OZ",
+                                                ifelse(Embalaje == "ROUGE" & Material == "CAJAS", "12X4.4OZ",
+                                                       ifelse(Embalaje == "18OZ" & Material == "CAJAS", "12X18OZ",Embalaje)))))))
+
+compras_spread <- compras_spread%>%
+  mutate(Embalaje = ifelse(Embalaje == "PUNNET" & Material == "CLAMS", "150G",
+                           ifelse(Embalaje == "ROUGE" & Material == "CLAMS", "4.4OZ",Embalaje)))
+
+compras_spread <- compras_spread%>%
+  mutate(Cantidad = ifelse(Nombre == "COOL PAK AG PACKAGING S DE RL DE CV" & Embalaje == "12OZ" & ValorUnitario > 20,
+                           600*Cantidad, Cantidad))
+
+
+compras_spread[grep("12-12oz", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <- "12X12OZ"
+
+compras_spread[grep("8-18OZ", compras_spread$Descripcion, ignore.case = TRUE),]$Embalaje <- "8X18OZ"
 
 
 
-compras_spread2 <- compras_spread%>%
-    filter(is.na(Material)) 
+#precio unitario
+
+dolar <- compras_spread%>%
+  select(Fecha, TipoCambio)%>%
+  filter(TipoCambio > 2)%>%
+  group_by(Fecha)%>%
+  summarize(Dolar = mean(TipoCambio, na.rm = TRUE))
+
+dolar <- merge(data.frame(Fecha = as.Date(c(min(compras_spread$Fecha): 
+                                             max(compras_spread$Fecha)), origin = "1970-01-01")), 
+               dolar, by = "Fecha", all.x = TRUE)%>%
+  na.interpolation()
 
 
-var <- "280763cb-6363-4d3d-93eb-afc8b473fa24.xml"
+compras_spread <- merge(compras_spread, dolar, by = "Fecha", all.x = TRUE)
+
+
+
+compras_spread <- compras_spread%>%
+  mutate(Cantidad = ifelse(Nombre == "PENPACK S DE RL DE CV", Cantidad*444,Cantidad),
+         Cantidad = ifelse(Nombre == "BIO PAPPEL S.A.B. DE C.V.", Cantidad*1000, Cantidad),      
+         Cantidad = ifelse(Descripcion == "7575215CMSCPETMXBLKCLPAK 18OZ BLK CMS 420/CS 24/PL", 
+                           Cantidad*420, Cantidad),
+         Cantidad = ifelse(Descripcion == "7575215CMSCPETCLBLKGENIC 18OZ BLK CMS 330/CS 18/PL", 
+                           Cantidad*330, Cantidad),
+         Importe = ifelse(Moneda == "USD", Importe, Importe/Dolar),
+         ValorUnitario = ifelse(Moneda == "USD", ValorUnitario, ValorUnitario/Dolar),
+         Unitario_real = Importe/Cantidad,
+         Unitario_iva  = Unitario_real*1.16)
+
+write.csv(compras_spread, "compras1718.csv")
+
+#analisis
+
+
+
 

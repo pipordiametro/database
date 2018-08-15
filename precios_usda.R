@@ -48,7 +48,7 @@ precios.df <- rbind(ara.cn.f,ara.org.f, zar.cn.f,ZAR.ORG)%>%
  
 
 rm(ARA.CN, ara.cn.f, ARA.ORG, ara.org.f, frutas.df,precios.var, 
-   ZAR.cn, zar.cn.f, ZAR.ORG, var)
+   ZAR.CN, zar.cn.f, ZAR.ORG, var)
   
 dias <- data.frame(Fecha = as.Date(c(min(precios.df$Fecha):max(precios.df$Fecha)), 
                                    origin = "1970-01-01"))

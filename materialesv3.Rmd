@@ -1,0 +1,67 @@
+---
+title: MATERIALES
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# OBSERVACIONES
+
+  Para este analisis se consideraron todas las compras hechas a partir del 1-sept-2017 al 31-jul-2018. Hizo falta un inventario inicial que al parecer no se tiene. Y existen varias irregularidades en los prestamos de material a productores.
+
+
+## MATERIAL EN POSECIÓN DE PRODUCTORES
+
+Para esta tabla, el campo : "Entregas" hace referencia a los prestamos de material a productores. El campo: "Recepcion" hace referencia a el material que se recibio en anden con fruta. El campo Devoluciones hace referencia a las devoluciones de material registradas. Y el campo "Posecion productores es el resultado de: Entregas - Recepcion - Devoluciones"
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+
+library(knitr)
+read_chunk('materialesv3.R')
+```
+
+```{r posecion, echo = FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+<<datos>>
+posecion_productores%>%
+    mutate(Presentacion = cell_spec(
+    Presentacion, color = "black", bold = T, font_size = 12, italic = T))%>%
+  kable2("html",escape = F)%>%
+  kable_styling(c("striped", "bordered", "condensed", "responsive"), full_width = F, 
+                font_size = 12, position = "left")%>%
+  group_rows("Caja Emp.", 1, 7)%>%
+  group_rows("Clamshell", 8,12)
+```
+
+## RELACION COMPRAS-SALIDAS
+
+Es la tabla mas confiable. EL campo "Compras" se basa directamente en las facturas y el campo: "Enviados" se basa en  los registros de envios de fruta a los clientes. Es notable el excesivo saldo en clamshell de 6oz. Al parecer hace falta el registro de la salida del clamshell sobrante de "Del monte". EN cuanto tenga el dato, lo incorporare.
+
+```{r echo = FALSE,message=FALSE, warning=FALSE, paged.print=FALSE, fig.align='left'}
+compras_salidas%>%
+    mutate(Presentacion = cell_spec(
+    Presentacion, bold = T, font_size = 12, italic = T))%>%
+  kable2("html",escape = F)%>%
+  kable_styling(c("striped", "bordered", "condensed", "responsive"), full_width = F, font_size = 12)%>%
+  group_rows("Caja Emp.", 1, 7)%>%
+  group_rows("Clamshell", 8,12)
+```
+
+## Resumén
+
+La idea de esta tabla es estimar un saldo de material que se queda en inventario. Pero es dudoso pues los registros de prestamos y devoluciones a los productores no tienen consistencia ademas de la ausencia de un inventario inicial
+
+```{r echo = FALSE,message=FALSE, warning=FALSE, paged.print=FALSE}
+resumen%>%
+    mutate(Presentacion = cell_spec(
+    Presentacion, color = "black", bold = T, font_size = 12, italic = T))%>%
+  kable2("html",escape = F)%>%
+  kable_styling(c("striped", "bordered", "condensed", "responsive"), full_width = F, font_size = 12)%>%
+    group_rows("Caja Emp.", 1, 7)%>%
+  group_rows("Clamshell", 8,12)
+```

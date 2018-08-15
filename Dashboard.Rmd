@@ -1,0 +1,213 @@
+---
+title: "DASHBOARD"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(plotly())
+read_chunk("Dashboard.R")
+```
+
+ZARZAMORA {data-navmenu="PRODUCCION"}
+=======================================================================
+
+Produccion
+-----------------------------------------------------------------------
+### Produccion en 6oz
+
+```{r}
+<<datos>>
+ggplotly(entradas_semanales%>%
+  filter(Fruta == "ZAR CN")%>%
+  ggplot(aes(x = Semana, y = Total, colour = Temporada, group = Temporada)) + geom_point() + geom_line())
+  
+```
+
+6OZ {.tabset}
+------------------------------------------------------------------
+### ALPASA
+
+```{r}
+graficas$`ZAR CN_12X6OZ_ALPASA.plot`
+```
+
+
+### DEL MONTE
+```{r}
+graficas$`ZAR CN_12X6OZ_DEL MONTE.plot`
+```
+
+### SIN ETIQUETA
+
+```{r}
+graficas$`ZAR CN_12X6OZ_SIN ETIQUETA.plot`
+```
+
+4.4 Oz {.tabset} 
+-------------------------------------------------------------
+### ROUGE
+
+```{r}
+graficas$`ZAR CN_12X125G_ROUGE PARFUM.plot`
+```
+
+### ALPASA
+```{r}
+graficas$`ZAR CN_12X4.4OZ_ALPASA.plot`
+```
+
+### HURSTS
+```{r}
+graficas$`ZAR CN_12X4.4OZ_HURSTS.plot`
+```
+
+### SAN LUCAR
+
+```{r}
+graficas$`ZAR CN_12X4.4OZ_SANLUCAR`
+```
+
+
+PUNNET
+-------------------------------------------------------------
+### PUNNET
+
+```{r}
+graficas$`ZAR CN_12X150G_PUNNET.plot`
+```
+
+12 Oz 
+--------------------------------------------------------------
+### HURSTS
+
+```{r}
+graficas$`ZAR CN_8X12OZ_HURSTS.plot`
+```
+
+
+18 OZ
+----------------------------------------------------------------
+
+### NATURES PARTNER
+
+```{r}
+graficas$`ZAR CN_12X18OZ_NATURES PARTNER.plot`
+```
+
+ZARZAMORA ORGANICA{data-navmenu="PRODUCCION"}
+=======================================================================
+
+Produccion en 6Oz
+----------------------------------------------------------------------
+### Produccion en 6Oz
+
+```{r}
+ggplotly(entradas_semanales%>%
+  filter(Fruta == "ZAR ORG")%>%
+  ggplot(aes(x = Semana, y = Total, colour = Temporada, group = Temporada)) + geom_point() + geom_line())
+```
+
+
+ARANDANO {data-navmenu="PRODUCCION"}
+=======================================================================
+
+Produccion en 6Oz
+----------------------------------------------------------------------
+### Produccion en 6Oz
+
+```{r}
+ggplotly(entradas_semanales%>%
+  filter(Fruta == "ARA BER")%>%
+  ggplot(aes(x = Semana, y = Total, colour = Temporada, group = Temporada)) + geom_point() + geom_line(), layerData = 2)
+```
+## Productos
+
+6oz{.tabset}
+--------------------------------------------------------------------
+### ALPASA
+```{r}
+graficas$`ARA BER_12X6OZ_ALPASA ARAN.plot`
+```
+
+### DEL MONTE
+
+```{r}
+graficas$`ARA BER_12X6OZ_DEL MONTE ARAN.plot`
+```
+### ALPASA NACIONAL
+```{r}
+graficas$`ARA BER_12X6OZ_ALPASA ARAN NAC.plot`
+```
+### OTRO NACIONAL
+```{r}
+graficas$`ARA BER_12X6OZ_OTRO ARAN NAC.plot`
+```
+12 OZ
+-----------------------------------------------------
+### DEL MONTE
+```{r}
+graficas$`ARA BER_12X12OZ_DEL MONTE.plot`
+```
+
+18 OZ {.tabset}
+------------------------------------------------------------
+### NATURES PARTNER 12 X 18
+```{r}
+graficas$`ARA BER_12X18OZ_NATURE PARTNER ARA.plot`
+```
+
+### NATURES PARTNER 8 X 18
+```{r}
+graficas$`ARA BER_8X18OZ_NATURES PARTNER ARAN.plot`
+```
+
+
+ARANDANO ORGANICO {data-navmenu="PRODUCCION"}
+=======================================================================
+
+```{r}
+ggplotly(entradas_semanales%>%
+  filter(Fruta == "ARA ORG")%>%
+  ggplot(aes(x = Semana, y = Total, colour = Temporada, group = Temporada)) + geom_point() + geom_line())
+```
+
+USDA {data-navmenu="PRECIOS"}
+=====================================================================
+
+USDA {.tabset}
+--------------------------------------------------------------------
+### ZARZAMORA CONVENCIONAL
+```{r}
+precios_zar.plot
+```
+
+
+
+###  ARANDANO CONVENCIONAL
+```{r}
+precios_ara.plot
+```
+
+ 
+ALPASA {data-navmenu="PRECIOS"}
+======================================================================
+
+### ALPASA 6 OZ
+
+```{r}
+
+```
+ 
+PRODUCCION {data-navmenu="PRODUCTORES"}
+======================================================================
+```{r}
+datatable(productores_fruta, filter = 'top', options = list(
+  pageLength = 5, autoWidth = TRUE))
+```
+
+
