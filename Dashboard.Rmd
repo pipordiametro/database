@@ -211,3 +211,15 @@ datatable(productores_fruta, filter = 'top', options = list(
 ```
 
 
+ENTRADAS {data-navmenu="PRODUCTORES"} 
+=====================================================================
+
+```{r}
+datatable(entradas_fruta%>%
+            filter(Fecha > inicio_temporada)%>%
+            select(Fecha, Clave_productor, Clave_producto, Cantidad, Rechazadas, Aceptadas)%>%
+            nombres.productores() %>% nombres.productos()%>%
+            select(-Clave_productor, -Clave_producto))
+            
+```
+

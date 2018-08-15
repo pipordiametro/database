@@ -67,15 +67,15 @@ precios_cor <- merge(precios_check%>%
   filter(Fruta == "ZAR CN")%>%
   select(Folio, Fecha, Semanats, Fruta, Producto , Fraccion6oz, Cliente, Destino, Cantidad,  Promedio_usda, Precio_real)
 
-pais.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real, colour = Destino)) + 
+pais.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = as.numeric(Precio_real), colour = Destino, group = Destino)) + 
            geom_point()  + geom_smooth(method = "lm", se = FALSE)+ geom_abline(slope = 1, linetype = "dotted") + 
              labs(title = "Correlación de precios por destino", y = "Precio liquidado"))
 
-cliente.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real, colour = Cliente)) + 
+cliente.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = as.numeric(Precio_real), colour = Cliente)) + 
                         geom_point()  + geom_smooth(method = "lm") + geom_abline(slope = 1, linetype = "dotted") +
                           labs(title = "Correlación de precios por cliente", y = "Precio liquidado"))
 
-mix.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real, colour = paste(Cliente, Destino))) + 
+mix.plot <- ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = as.numeric(Precio_real), colour = paste(Cliente, Destino))) + 
                        geom_point()  + geom_smooth(method = "lm", se = FALSE) + geom_abline(slope = 1, linetype = "dotted"))
 
 global.plot <-  ggplotly(ggplot(precios_cor, aes(x = Promedio_usda, y = Precio_real),  colour = "Cyan") + 

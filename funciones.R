@@ -96,7 +96,7 @@ get.precios <- function(){
 dbbackup <- function(){
   con <- odbcConnect(dsn = "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017")
   for (var in sqlTables(con)$TABLE_NAME){
-    write.csv(sqlFetch(con,var, as.is = TRUE),paste0("proyecto/",var,".csv"))
+    write.csv(sqlFetch(con,var, as.is = TRUE, stringsAsFactors = FALSE),paste0("proyecto/",var,".csv"))
   }
   odbcClose(con)
 }
