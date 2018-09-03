@@ -207,7 +207,8 @@ PRODUCCION {data-navmenu="PRODUCTORES"}
 ======================================================================
 ```{r}
 datatable(productores_fruta, filter = 'top', options = list(
-  pageLength = 5, autoWidth = TRUE))
+     extensions = 'Buttons', pageLength = 5, autoWidth = TRUE, dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', "print")))
 ```
 
 

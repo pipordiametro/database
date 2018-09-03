@@ -1,0 +1,654 @@
+---
+title: "Paneles"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    logo: logo.JPG
+    theme: yeti
+runtime: shiny  
+
+---
+
+```{r global, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(plotly)
+library(DT)
+library(stringr)
+library(tidyr)
+library(highcharter)
+
+source("funciones.R")
+
+
+entradas_fruta <- entradas.fruta(Campos = c("Fecha", "Clave_productor", "Clave_producto", "Aceptadas", "Clave_acopio"))
+
+entradas_material <- entradas.material()
+
+productores <-   data.frame(Clave_productor = unique(entradas_fruta$Clave_productor))%>%
+    nombres.productores()%>%
+    rename(Codigo = Clave_productor)
+
+
+
+load.materiales(Campos = c("Material"))
+
+materiales <- setNames(materiales$Clave_material, materiales$Material)
+
+
+
+
+
+
+
+flujo_acopios <- rbind(entradas_material%>%
+                              select(Fecha, Clave_acopio, Clave_material, Cantidad),
+                            entregas.material()%>%
+                              select(Fecha, Clave_acopio, Clave_material, Cantidad)%>%
+                          mutate(Cantidad = -Cantidad))%>%
+  ddply(.(Fecha, Clave_acopio, Clave_material), summarize, Flujo = sum(Cantidad))%>%
+  get.acopio()
+
+
+```
+
+
+PRODUCTORES{data-navmenu="PRODUCCION"}
+==========================================================================
+
+Inputs {.sidebar}
+-------------------------------------------------------------------------------------------
+
+###
+```{r}
+
+selectInput("Acopio", label = "Selecione un Acopio",
+            choices = unique(flujo_acopios$Acopio),
+            selected = "LOS REYES")
+
+
+selectizeInput("Clave_productor", label = p("Productores"),
+            choices = paste(productores$Codigo,productores$Nombre_completo), selected = " ", 
+            options = list(placeholder = 'Seleccione un productor'), multiple = FALSE)
+
+
+selectInput("INTERVALO", "Ver por:",
+            choices = c("Semana", "Diario"),
+            selected = "Semana")
+
+entradas_productor <- reactive({  
+  
+  
+  if(input$INTERVALO == "Diario"){  
+  
+  entradas_fruta%>%
+    select(Fecha, Clave_productor, Clave_producto, Aceptadas)%>%
+    filter(Clave_productor == str_match(input$Clave_productor, "^[[0-9]]{0,3}")[,1])%>%
+    ddply(.(Fecha, Clave_productor, Clave_producto), summarize, Total = sum(Aceptadas))%>%
+    get.productos(Campos = c("Fruta", "Nombre_producto", "Presentacion", "Fraccion6oz"))%>%
+    mutate(Fraccion = Fraccion6oz)
+      
+    
+  }else{
+    if(input$INTERVALO == "Semana"){
+   
+     entradas_fruta%>%
+      select(Fecha, Clave_productor, Clave_producto, Aceptadas)%>%
+    filter(Clave_productor == str_match(input$Clave_productor, "^[[0-9]]{0,3}")[,1])%>%
+    ddply(.(Fecha, Clave_productor, Clave_producto), summarize, Total = sum(Aceptadas))%>%
+    get.productos(Campos = c("Fruta", "Nombre_producto", "Presentacion", "Fraccion6oz"))%>%
+    mutate(Fraccion = Fraccion6oz)%>%
+      tiempos("Semana")
+     
+    } 
+  }
+
+})
+    
+```
+
+
+Nombre
+--------------------------------------------------------------------------
+
+
+###Nombre
+```{r}
+
+stats <- reactive({
+  
+  if(input$INTERVALO == "Diario"){
+  
+entradas_productor()%>%
+  ddply(.(Fecha, Clave_productor), summarize, Total = sum(Total*Fraccion))%>%
+      filter(Total != 0)%>%
+  ddply(.(Clave_productor),
+  summarize, Maximo = round(max(Total),2),
+             Minimo = round(min(Total),2),
+             Acumulado = round(sum(Total)))
+  
+  }else{
+  
+  if(input$INTERVALO == "Semana"){
+    
+entradas_productor()%>%
+  ddply(.(Semana, Clave_productor), summarize, Total = sum(Total*Fraccion))%>%
+  filter(Total != 0)%>%
+      ddply(.(Clave_productor),
+  summarize, Maximo = round(max(Total),2),
+             Minimo = round(min(Total),2),
+             Acumulado = round(sum(Total)))
+
+    
+  }
+ 
+  } 
+})
+
+renderValueBox(valueBox(input$Clave_productor))
+
+```
+
+
+Cajas 
+-----------------------------------------------------------------------
+
+
+###Maximo en 6Oz
+
+```{r }
+
+renderValueBox(valueBox(stats()$Maximo))
+
+```
+
+
+###Minimo en 6oz
+```{r }
+
+renderValueBox(valueBox(stats()$Minimo))
+
+```
+
+
+### Ultima entrega
+```{r}
+
+renderValueBox(valueBox(max(entradas_productor()$Fecha)))
+
+```
+
+### Acumulado en 6oz
+```{r }
+
+renderValueBox(valueBox(stats()$Acumulado))
+
+```  
+
+
+Vusualizacion {.tabset}
+-----------------------------------------------------------------------
+
+### Produccion en 6oz
+```{r}
+renderHighchart(
+ 
+    
+    if(input$INTERVALO == "Semana"){
+     
+      hchart(
+      entradas_productor()%>%
+        ddply(.(Semana, Clave_productor), summarize, Total = sum(Total*Fraccion))%>%
+           semanas(Campos = list(Total = 0, 
+                                    Clave_productor = str_match(input$Clave_productor, "^[[0-9]]{0,3}")[,1])), 
+          hcaes(x = Semana, y = Total, group = Clave_productor), type = "line")%>%
+     hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
+    }else{
+      
+      if(input$INTERVALO == "Diario"){
+         
+        hchart(
+      entradas_productor()%>%
+            ddply(.(Fecha, Clave_productor), summarize, Total = sum(Total*Fraccion))%>%
+            dias(Campos = list(Total = 0, Clave_productor = str_match(input$Clave_productor, "^[[0-9]]{0,3}")[,1])), 
+          hcaes(x = Fecha, y = Total, group = Clave_productor), type = "line")%>%
+    hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
+        
+        
+      }
+    }
+    
+)
+```
+
+
+### Productos
+
+```{r}
+
+renderHighchart(
+ 
+    
+    if(input$INTERVALO == "Semana"){
+     
+      hchart(entradas_productor()%>%
+          mutate(Producto = paste(Nombre_producto, Presentacion, Fruta))%>%
+          ddply(.(Semana, Producto), summarize, Total = sum(Total))%>%
+            semanas(Campos = list(Total = 0, 
+                                  Clave_productor = str_match(input$Clave_productor, "^[[0-9]]{0,3}")[,1],
+                                  Producto = "ALPASA 12X6OZ ZAR CN")),
+          hcaes(x = Semana, y = Total, group = Producto), type = "column")%>%
+   hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)%>%
+        hc_xAxis(categories = sort(unique(data.frame(Semana = factor(c(1:52), levels = (c(34:85)%%52 + 1), ordered = TRUE))[,1])))
+    
+        
+    }else{
+      
+      if(input$INTERVALO == "Diario"){
+         
+      hchart(entradas_productor()%>%
+          mutate(Producto = paste(Nombre_producto, Presentacion, Fruta))%>%
+          ddply(.(Fecha, Producto), summarize, Total = sum(Total)),
+          hcaes(x = Fecha, y = Total, group = Producto), type = "column")%>%
+    hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
+        
+        
+      }
+    }
+    
+)
+
+
+
+```
+
+### Tabla de Datos
+```{r}
+
+renderDataTable(
+  datatable(entradas_productor()%>%
+              mutate(Total_6oz = Total*Fraccion6oz)%>%
+              select(Fecha, Nombre_producto, Presentacion, Fruta, Total, Total_6oz)
+              )
+)
+```
+
+
+ACOPIOS {data-navmenu="MATERIALES"}
+=======================================================================================
+
+inputs {.sidebar}
+-----------------------------------------------------------------------------------
+
+
+```{r}
+
+
+
+selectInput("Acopio", label = "Selecione un Acopio",
+            choices = unique(flujo_acopios$Acopio),
+            selected = "LOS REYES")
+
+
+selectizeInput("Material", label = "Selecione un material", options = list(placeholder = NULL),
+                          choices = materiales[materiales %in% unique(flujo_acopios$Clave_material)], multiple = TRUE)
+
+
+selectInput("INTERVALO", "Ver por:",
+            choices = c("Semana", "Diario"),
+            selected = "Semana")
+
+
+
+inventario <- reactive({
+  if(is.null(input$Material)){
+  flujo_acopios%>%
+    filter(Acopio == input$Acopio)
+  }else{
+     flujo_acopios%>%
+    filter(Acopio == input$Acopio, Clave_material %in% input$Material)
+  }
+
+})
+
+```
+
+
+
+Nombre
+--------------------------------------------------------------------------
+
+
+###ACOPIO
+```{r}
+
+renderValueBox(valueBox(input$Acopio))
+
+
+
+```
+
+
+
+
+
+VISUALIZACION {.tabset}
+--------------------------------------------------------------------------------------
+
+###Flujos 
+
+```{r}
+renderPlotly(
+  (ggplot(inventario()%>%
+                  arrange(Fecha)%>%
+    group_by(Clave_acopio, Clave_material)%>%
+    mutate(Acumulado = cumsum(Flujo))%>%
+    ungroup()%>%
+      get.material(Campos = c("Material")),
+  aes(x = Fecha, y = Acumulado, 
+      colour = Material)) + geom_line())%>%
+    ggplotly()
+)
+```
+
+
+
+###Datos
+
+```{r}
+renderDataTable(
+  datatable(inventario()%>%
+              ddply(.(Clave_material), summarize, Inventario = sum(Flujo))%>%
+              get.material(Campos = c("Material"))%>%
+              select(Clave_material, Material, Inventario), rownames = FALSE )
+)        
+```
+
+
+
+PRODUCTORES  {data-navmenu="MATERIALES"}
+=========================================================================================
+
+inputs {.sidebar}
+-----------------------------------------------------------------------------------
+
+###
+```{r}
+
+
+
+selectizeInput("Clave_productor2", label = p("Productores"),
+            choices = paste(productores$Codigo,productores$Nombre_completo), selected = " ", 
+            options = list(placeholder = 'Seleccione un productor'), multiple = FALSE)
+
+
+selectizeInput("Material", label = "Selecione un material", options = list(placeholder = NULL),
+                          choices = materiales[materiales %in% unique(flujo_acopios$Clave_material)], multiple = TRUE)
+
+
+inventario <- reactive({
+  if(is.null(input$Material)){
+  flujo_acopios%>%
+    filter(Acopio == input$Acopio)
+  }else{
+     flujo_acopios%>%
+    filter(Acopio == input$Acopio, Clave_material %in% input$Material)
+  }
+
+})
+
+
+
+
+
+selectInput("INTERVALO", "Ver por:",
+            choices = c("Semana", "Diario"),
+            selected = "Semana")
+
+
+
+inventario <- reactive({
+  if(is.null(input$Material)){
+  flujo_acopios%>%
+    filter(Acopio == input$Acopio)
+  }else{
+     flujo_acopios%>%
+    filter(Acopio == input$Acopio, Clave_material %in% input$Material)
+  }
+
+})
+
+
+```
+
+```{r}
+entregas_material <- entregas.material(Campos = c( "Tipo_salida", "Clave_productor", 
+                                      "Fecha", "Cantidad", "Clave_material",
+                                      "Tipo_receptor" ))
+
+flujos_productor <-  reactive({
+  
+  rbind(
+                    #Cajas con fruta
+    entradas_fruta%>%
+      filter(Clave_productor == str_match(input$Productor_m, "^[[0-9]]{0,3}")[,1])%>%
+      select(Fecha, Clave_productor, Presentacion,Total)%>%
+      filter(Fecha >= inicio_temporada)%>%
+      mutate(Tipo_material = "CAJA EMP.", Tipo = "FRUTA", Total = - Total),   #Cajas con fruta
+                
+                             #clams con fruta
+    
+    entradas_fruta%>%
+      filter(Clave_productor == str_match(input$Productor_m, "^[[0-9]]{0,3}")[,1])%>%
+      get.productos(Campos = c( "Peso", "Unidad", "Clams"))%>%
+                  mutate(Total = Total*Clams,
+                         Presentacion = paste0(Peso,Unidad))%>%
+      select(Fecha, Clave_productor, Presentacion, Total)%>%
+      mutate(Tipo_material = "CLAMSHELL", Tipo = "FRUTA", Total = -Total),    
+                
+                #prestamos
+      entregas_material%>%
+      filter(Clave_productor == str_match(input$Productor_m, "^[[0-9]]{0,3}")[,1])%>%
+                  filter(Tipo_salida == "PRESTAMO", Tipo_receptor == "PRODUCTOR")%>%
+      select(Fecha, Clave_material, Clave_productor, Cantidad)%>%
+      rename(Total = Cantidad)%>%
+      get.material(Campos = c("Presentacion", "Tipo_material")) %>%
+      mutate(Tipo = "PRESTAMO")%>%
+      select(Fecha, Clave_productor, Presentacion, Total, Tipo_material, Tipo),
+    
+                #devoluciones
+          
+    entradas_material%>%
+      rename(Clave_productor = Clave_proveedor)%>%
+      filter(Clave_productor == str_match(input$Productor_m, "^[[0-9]]{0,3}")[,1])%>%
+      filter(Tipo_entrada == "DEVOLUCION", Tipo_proveedor == "PRODUCTOR")%>%
+      rename(Tipo = Tipo_entrada)%>%
+      get.material(Campos = c("Presentacion", "Tipo_material"))%>%
+      mutate(Total = -Cantidad)%>%
+      select(Fecha, Clave_productor, Presentacion, Total, Tipo_material, Tipo))%>%
+    
+              #summarize
+    rename(Concepto = Tipo)%>%
+    ddply(.(Fecha, Clave_productor, Concepto,Tipo_material, Presentacion), summarize, 
+          Total = sum(Total))%>%
+    tiempos(Campos = c("Semana"))
+  
+  
+  
+ 
+    
+    
+
+
+})
+  
+  
+```
+
+
+Nombre
+---------------------------------------------------------------------------------------------------------------
+
+###Nombre
+```{r}
+
+renderValueBox(valueBox(input$Clave_productor2))
+
+
+
+```
+
+
+
+
+
+
+Visualizacion {.tabset}
+---------------------------------------------------------------------------------
+###Saldos
+
+```{r}
+
+
+
+
+
+
+renderTable(
+  flujos_productor()%>%
+    select(-Semana)%>%
+    rbind(data.frame(Fecha = inicio_temporada, Clave_productor = input$Clave_productor2, 
+                     Concepto = c("FRUTA", "DEVOLUCION", "PRESTAMO"), Tipo_material = "AUX", 
+                     Presentacion = "6OZ", Total = 0))%>%
+    ddply(.(Presentacion, Tipo_material, Concepto), summarize, Saldo = sum(Total))%>%
+    spread(Concepto, Saldo, fill = 0 )%>%
+    select(Tipo_material, Presentacion,  PRESTAMO, FRUTA,DEVOLUCION)%>%
+    mutate(Saldo = PRESTAMO + FRUTA + DEVOLUCION)%>%
+    filter(Tipo_material != "AUX")
+    
+    
+    
+
+)
+   
+
+
+```
+
+
+
+
+### Grafico
+
+
+```{r}
+renderPlotly( 
+if(input$INTERVALO == "Semana"){
+
+
+
+(ggplot(flujos_productor()%>%
+           ddply(.(Semana, Tipo_material, Presentacion), summarize, 
+                      Total = sum(Total)), 
+                aes( x = Semana, y = Total, colour = Presentacion, group = Presentacion)) + geom_line())%>%
+                ggplotly()
+            
+}else{
+  
+   
+  (ggplot(flujos_productor()%>%
+           ddply(.(Fecha, Tipo_material, Presentacion), summarize, 
+                      Total = sum(Total)), 
+                aes( x = Fecha, y = Total, colour = Presentacion, group = Presentacion)) + geom_line())%>%
+                ggplotly()
+
+}
+
+)
+```
+
+###TABLA
+
+```{r}
+renderDataTable(
+if(input$INTERVALO == "Semana"){
+
+
+
+  datatable(flujos_productor()%>%
+              ddply(.(Semana, Clave_productor, Concepto, Tipo_material, Presentacion), summarize, Total = sum(Total))
+              , extensions = 'Buttons', options = list(
+    autoWidth = TRUE, dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'pdf', "print")))
+}else{
+  
+    datatable(flujos_productor()%>%
+                select(-Semana)%>%
+              arrange(Fecha), extensions = 'Buttons', options = list(
+    autoWidth = TRUE, dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'pdf', "print")))
+  
+} 
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ACOPIOS{data-navmenu="PRODUCCION"}
+======================================================================================
+
+inputs {.sidebar}
+-----------------------------------------------------------------------------------
+
+
+```{r}
+selectInput("Acopio", label = "Selecione un Acopio",
+            choices = unique(flujo_acopios$Acopio),
+            selected = "LOS REYES")
+
+
+selectInput("INTERVALO", "Ver por:",
+            choices = c("Semana", "Diario"),
+            selected = "Semana")
+
+```
+
+
+
+
+
