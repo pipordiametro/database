@@ -1,10 +1,51 @@
 library(RODBC)
 library(plyr)
 library(dplyr)
+library(DBI)
+library(odbc)
+library(pool)
+library(tidyr)
+
 
 inicio_temporada <- as.Date("2017-09-01")
 
-myfetch <- function(nombre,base = FALSE){
+pool <- dbPool(drv = odbc::odbc(),
+               dsn = "SQLProyecto08",  uid = "francisco", pwd = "Alpasa2017")
+
+#con <- dbConnect(odbc::odbc(), "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017", encoding = "UTF8")
+
+myfetch3 <- function(nombre,base = FALSE){
+ # if(unname(Sys.info()["nodename"] == "DESKTOP-LQ3B302") ){
+#    con <- dbConnect(odbc::odbc(), "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017")
+    var <- tbl(pool, nombre) 
+ #   odbcClose(con)
+#    write.csv(var, paste0("proyecto/", nombre, ".csv"))
+ # }else{
+  #  var <- read.csv(paste0("proyecto/", nombre,".csv"))
+    
+#  }
+  return(var)
+}
+
+
+
+myfetch <- function(nombre){
+  if(unname(Sys.info()["nodename"] == "DESKTOP-LQ3B302") ){
+    var <-tbl(pool, nombre) 
+  
+  }else{
+    var <- read.csv(paste0("proyecto/", nombre,".csv"))
+    
+  }
+  return(var)
+  
+}
+
+
+
+
+
+myfetch2 <- function(nombre,base = FALSE){
   if(unname(Sys.info()["nodename"] == "DESKTOP-LQ3B302") ){
     con <- odbcConnect(dsn = "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017")
     var <- sqlFetch(con, nombre, as.is = TRUE) 
@@ -17,7 +58,7 @@ myfetch <- function(nombre,base = FALSE){
   return(var)
 }
 
-myfetch2 <- function(nombre,base = FALSE){
+myfetch6 <- function(nombre,base = FALSE){
      var <- read.csv(paste0("proyecto/", nombre,".csv"))
     
   return(var)
@@ -140,7 +181,8 @@ ploteos <- function(df, fecha = "Fecha" , cantidad = "Cantidad"){
 tiempos <- function(df, Campos = c("Semana", "Semanats", "Year", "Temporada")){
   
   df_mod <- df%>%
-    mutate(Semana = as.integer(format(Fecha, "%U")),
+    mutate(Fecha = as.Date(Fecha),
+      Semana = as.integer(format(Fecha, "%U")),
            Year = as.integer(format(Fecha , "%Y")),
            Year = ifelse(Semana == 0, Year - 1, Year),
            Semana = ifelse(Semana %in% c(0,53), 52, Semana),
@@ -212,17 +254,19 @@ get.productos <- function(df, Campos = c("Clave_fruta", "Clave_presentacion",  "
                                               "Peso", "Unidad", "Presentacion", "Nombre_fruta", "Nombre_corto_fruta", "Variedad", "Fruta",             
                                               "Producto", "Fraccion6oz")){
   
-  df <- merge(myfetch("tbProductos")%>%
+  df <- left_join(myfetch("tbProductos")%>%
                        filter(strCan_cel == "NO"),
                      myfetch("tbPresentaciones")%>%
                        filter(strCan_cel == "NO"), 
-                     by = "intCla_pre", suffixes = c("h", "b"))%>%
+                     by = "intCla_pre", suffix = c("h", "b"))%>%
     transmute(Clave_presentacion = intCla_pre, intCla_fru = intCla_fru, 
               Clave_producto = strCla_prod, Nombre_producto = strNom_bre,
               Clams = as.integer(intCan_tid), Peso = as.numeric(intPes_o), 
               Unidad = strUni_med)%>%
+    collect()%>%
     mutate(Presentacion = paste0(Clams,"X", Peso, Unidad))%>%
-    merge(myfetch("tbFrutas"), by = "intCla_fru")%>%
+    left_join(myfetch("tbFrutas")%>%
+                collect(), by = "intCla_fru")%>%
     rename(Clave_fruta = intCla_fru, Nombre_fruta = strNom_bre, Nombre_corto_fruta = strNom_cto, 
               Variedad = strVar_ied, Variedad_corto = strVar_cto, Tipo_fruta = strTip_o,
               Tipo_corto = strTip_cto)%>% 
@@ -230,7 +274,7 @@ get.productos <- function(df, Campos = c("Clave_fruta", "Clave_presentacion",  "
     mutate(Producto = paste0(Fruta,"_", Presentacion, "_", Nombre_producto),
            Fraccion6oz = ifelse(Unidad == "G", Clams*Peso*0.035274/72  , Clams * Peso/72))%>%
     select(Clave_producto, one_of(Campos))%>%
-    merge(df, by = "Clave_producto")
+    right_join(df, by = "Clave_producto")
   
   return(df)
   
@@ -239,7 +283,7 @@ get.productos <- function(df, Campos = c("Clave_fruta", "Clave_presentacion",  "
 
 load.productos <- function(){
 
-productos <<- merge(myfetch("tbProductos")%>%
+productos <<- left_join(myfetch("tbProductos")%>%
                      filter(strCan_cel == "NO"),
                    myfetch("tbPresentaciones")%>%
                      filter(strCan_cel == "NO"), 
@@ -249,7 +293,7 @@ productos <<- merge(myfetch("tbProductos")%>%
             Clams = as.integer(intCan_tid), Peso = as.numeric(intPes_o), 
             Unidad = strUni_med)%>%
   mutate(Presentacion = paste0(Clams,"X", Peso, Unidad))%>%
-  merge(myfetch("tbFrutas"), by = "intCla_fru")%>%
+  left_join(myfetch("tbFrutas"), by = "intCla_fru")%>%
   rename(Clave_fruta = intCla_fru, Nombre_fruta = strNom_bre, Nombre_corto_fruta = strNom_cto, 
          Variedad = strVar_ied, Variedad_corto = strVar_cto, Tipo_fruta = strTip_o,
          Tipo_corto = strTip_cto)%>% 
@@ -284,23 +328,24 @@ precio.promedio_semanal <- function(df){
   
 }    
 
-nombres.productores <- function(df, Campos = c("Nombre_completo")){
+nombres.productores <- function(df, Campos = c("Nombre", "Apellido_paterno", "Apellido_materno")){
   
-  productores <- myfetch("tbProductores")%>%
+  productores <- myfetch2("tbProductores")%>%
     filter(strCan_cel == "NO")%>%
     transmute(Clave_productor = intCla_pro, Nombre = strNom_bre, Apellido_paterno = strApe_pat,
-              Apellido_materno = strApe_mat, 
-              Nombre_completo = paste(Apellido_paterno, Apellido_materno, Nombre))
+              Apellido_materno = strApe_mat)%>%
+    select(Clave_productor, one_of(Campos))%>%
+    right_join(df, by ="Clave_productor", all.y =TRUE)
   
-  df <- merge(df, productores[,c("Clave_productor", Campos)], by ="Clave_productor", all.x =TRUE)
+  
 }
 
 entradas.fruta <- function(Campos = c("Id_entradas","Idb_entradas", "Nota", "Folio", "Fecha", "Clave_productor", "Clave_acopio",   
                                       "Cantidad", "Rechazadas", "Clave_producto", "Pallet", "Precio",
                                       "Numero_pago", "Pagado", "Aceptadas")){
 
-  entradas_fruta <- merge(myfetch("tbrecFruEmp"), myfetch("tbrecFruEmpReg"), 
-                          by = "intNum_reg", suffixes = c("h","b"))%>%
+  entradas_fruta <- left_join(myfetch("tbrecFruEmp"), myfetch("tbrecFruEmpReg"), 
+                          by = "intNum_reg", suffix = c("h","b"))%>%
     filter(strCan_celb == "NO")%>%
     transmute(Id_entradas = intNum_reg, Idb_entradas = intNum_regA, Folio = intNum_fol, Nota = intNum_not, 
               Fecha = as.Date(fecFec_not), Clave_productor = intCla_pro, 
@@ -315,18 +360,19 @@ entradas.fruta <- function(Campos = c("Id_entradas","Idb_entradas", "Nota", "Fol
 
 get.acopio <- function(df){
   
-  df <- merge(df,myfetch("tbAlmacenes")%>%
-                filter(strCan_cel == "NO")%>%
-                transmute(Clave_acopio = intCla_alm, Acopio = strNom_bre), 
-              by = "Clave_acopio", suffixes = c("h", "b"))
+  df <- left_join(df,
+                  myfetch2("tbAlmacenes")%>%
+                    filter(strCan_cel == "NO")%>%
+                    transmute(Clave_acopio = intCla_alm, Acopio = strNom_bre),
+              by = "Clave_acopio", suffix = c("h", "b"))
   
   return(df)
 }
 
 entradas.material <- function(){
   
-  entradas_material <- merge(myfetch("tbAlmEnt"),myfetch("tbAlmEntReg"), 
-                             by = "intNum_reg", all.x = TRUE, suffixes = c("h", "b"))%>%
+  entradas_material <- left_join(myfetch("tbAlmEnt"),myfetch("tbAlmEntReg"), 
+                             by = "intNum_reg", all.x = TRUE, suffix = c("h", "b"))%>%
     filter(strCan_celb == "NO")%>%
     transmute(Clave_acopio = intCla_alm, Tipo_entrada =  strTip_ent, Fecha = as.Date(fecFec_fac), 
               Tipo_proveedor = strTip_prov, Cantidad = intCan_tid , Clave_material = intCla_mat,
@@ -341,8 +387,8 @@ entradas.material <- function(){
 entregas.material <- function(Campos = c("Clave_acopio", "Tipo_salida", "Clave_productor", "Fecha", "Cantidad",
                                          "Clave_material", "Tipo_receptor" )){
   
-  entregas_material <- merge(myfetch("tbAlmSal"),myfetch("tbAlmsalReg"), 
-                             by = "intNum_reg", all.x = TRUE, suffixes = c("h", "b"))%>%
+  entregas_material <- left_join(myfetch("tbAlmSal"),myfetch("tbAlmsalReg"), 
+                             by = "intNum_reg", all.x = TRUE, suffix = c("h", "b"))%>%
     filter(strCan_celb == "NO")%>%
     transmute(Clave_acopio = intCla_alm, Tipo_salida = strTip_sal, Clave_productor = intCla_pro,
               Fecha = as.Date(fecFec_not), Cantidad = intCan_tid, Clave_material = intCla_mat, 
@@ -356,7 +402,7 @@ entregas.material <- function(Campos = c("Clave_acopio", "Tipo_salida", "Clave_p
 get.material <- function(df, Campos = c("Clave_material", "Marca", "Tipo_material", "Presentacion",
                                         "Clave_presentacion", "Material", "Clams", "Peso", "Unidad")){
   
-  df <- merge(df, merge(myfetch("tbMateriales")%>%
+  df <- left_join(df, left_join(myfetch("tbMateriales")%>%
                           transmute(Clave_material = intCla_mat, Marca = strMar_ca,
                                     Tipo_material = strTip_o,
                                     Clave_presentacion = intCla_pre), 
@@ -365,6 +411,7 @@ get.material <- function(df, Campos = c("Clave_material", "Marca", "Tipo_materia
                                     Peso = as.numeric(intPes_o), 
                                     Unidad = strUni_med, Cantidad = intCan_tid),
                         all.x = TRUE, by = "Clave_presentacion")%>%
+                    collect()%>%
                 mutate(Presentacion = ifelse(Tipo_material == "CLAMSHELL", paste0(Peso, Unidad), 
                                              paste0(Cantidad, "X", Peso, Unidad)))%>%
                 mutate(Material = paste(Marca, Presentacion, Tipo_material))%>%
@@ -379,11 +426,12 @@ get.material <- function(df, Campos = c("Clave_material", "Marca", "Tipo_materia
 load.materiales <- function( Campos = c("Clave_material", "Marca", "Tipo_material", "Presentacion",
                                         "Clave_presentacion", "Material")){
   
-  materiales <<- myfetch("tbMateriales")%>%
+  materiales <<- myfetch2("tbMateriales")%>%
     transmute(Clave_material = intCla_mat, Marca = strMar_ca,
               Tipo_material = strTip_o, Presentacion = strPre_sen,
-              Clave_presentacion = intCla_pre,
-              Material = paste(Marca, Presentacion, Tipo_material))%>%
+              Clave_presentacion = intCla_pre)%>%
+    collect()%>%
+    mutate(Material = paste(Marca, Presentacion, Tipo_material))%>%
     select(Clave_material, one_of(Campos))
  
 }
@@ -397,10 +445,11 @@ load.presentaciones <- function(){
 
 get.presentacion <- function(df, Campos = c("Clams", "Peso", "Unidad", "Presentacion")){
   
-  df <- merge(df, myfetch("tbPresentaciones")%>%
+  df <- left_join(df, myfetch("tbPresentaciones")%>%
                 transmute(Clave_presentacion = intCla_pre, Clams = as.integer(intCan_tid), 
                           Peso = as.numeric(intPes_o), 
                           Unidad = strUni_med, Tipo_material = strTip_o)%>%
+                  collect()%>%
                 mutate_if(Tipo_material == "CLAMSHELL", Presentacion = paste0(Peso, Unidad),
                           Presentacion = paste0(Clams,"X", Peso, Unidad))%>%
                 select(Clave_presentacion, one_of(Campos)),
@@ -408,53 +457,59 @@ get.presentacion <- function(df, Campos = c("Clams", "Peso", "Unidad", "Presenta
 
 }
 
-load.saldos.material <- function(){
+saldos.material <- function(Clave){
+  
+  x  <-   entradas.fruta(Campos = c("Fecha", "Clave_productor", "Clave_producto", "Aceptadas"))%>%
+    filter(Clave_productor == Clave)%>%
+    ddply(.(Fecha, Clave_producto), summarize, Total = sum(Aceptadas))
  
-saldos_material <<-    rbind(
-    entradas.fruta()%>%
-    #  filter(Clave_productor == str_match(input$Clave_productor2, "^[[0-9]]{0,3}")[,1])%>%
-      select(Fecha, Clave_productor, Presentacion,Total)%>%
+saldos_material <-    rbind(
+
+    #Cajas con fruta
+    x%>%
+      get.productos(Campos = c("Presentacion"))%>%
+      select(Fecha, Presentacion,Total)%>%
       filter(Fecha >= inicio_temporada)%>%
-      mutate(Tipo_material = "CAJA EMP.", Tipo = "CON FRUTA", Total = - Total),   #Cajas con fruta
-    entradas.fruta()%>%
-    #  filter(Clave_productor == str_match(input$Clave_productor2, "^[[0-9]]{0,3}")[,1])%>%
-      get.productos(Campos = c( "Peso", "Unidad", "Clams"))%>%
+      mutate(Tipo_material = "CAJA EMP.", Tipo = "FRUTA", Total = - Total),   #Cajas con fruta
+    
+    #clams con fruta
+    
+    x%>%
+      get.productos(Campos = c("Presentacion", "Peso", "Unidad", "Clams"))%>%
       mutate(Total = Total*Clams,
              Presentacion = paste0(Peso,Unidad))%>%
-      select(Fecha, Clave_productor, Presentacion, Total)%>%
-      mutate(Tipo_material = "CLAMSHELL", Tipo = "CON FRUTA", Total = -Total),    #clams con fruta
+      select(Fecha, Presentacion, Total)%>%
+      mutate(Tipo_material = "CLAMSHELL", Tipo = "FRUTA", Total = -Total),    
     
     #prestamos
-    entregas.material()%>%
-    #  filter(Clave_productor == str_match(input$Clave_productor2, "^[[0-9]]{0,3}")[,1])%>%
+    entregas.material(Campos = c("Tipo_salida", "Clave_productor", 
+                                 "Fecha", "Cantidad", "Clave_material",
+                                 "Tipo_receptor", "Clave_acopio"))%>%
+      filter(Clave_productor == Clave)%>%
       filter(Tipo_salida == "PRESTAMO", Tipo_receptor == "PRODUCTOR")%>%
-      ddply(.(Fecha, Clave_material, Clave_productor), summarize, 
-            Total = sum(Cantidad))%>%
+      select(Fecha, Clave_material, Cantidad)%>%
+      rename(Total = Cantidad)%>%
       get.material(Campos = c("Presentacion", "Tipo_material")) %>%
       mutate(Tipo = "PRESTAMO")%>%
-      select(Fecha, Clave_productor, Presentacion, Total, Tipo_material, Tipo),
+      select(Fecha, Presentacion, Total, Tipo_material, Tipo),
     
     #devoluciones
     
-    entradas_material%>%
+    entradas.material()%>%
       rename(Clave_productor = Clave_proveedor)%>%
-   #   filter(Clave_productor == str_match(input$Clave_productor2, "^[[0-9]]{0,3}")[,1])%>%
+      filter(Clave_productor == Clave)%>%
       filter(Tipo_entrada == "DEVOLUCION", Tipo_proveedor == "PRODUCTOR")%>%
       rename(Tipo = Tipo_entrada)%>%
       get.material(Campos = c("Presentacion", "Tipo_material"))%>%
-      ddply(.(Fecha, Clave_productor, Presentacion, Tipo_material, Tipo), 
-            summarize, Total = -sum(Cantidad))%>%
-      select(Fecha, Clave_productor, Presentacion, Total, Tipo_material, Tipo))%>%
-    
-  #  filter(Clave_productor == str_match(input$Clave_productor2, "^[[0-9]]{0,3}")[,1])%>%
-    rename(Concepto = Tipo)%>%
-    ddply(.(Fecha, Clave_productor, Concepto,Tipo_material, Presentacion), summarize, 
-          Total = sum(Total))%>%
-    tiempos(Campos = c("Semana"))
+      mutate(Total = -Cantidad)%>%
+      select(Fecha, Presentacion, Total, Tipo_material, Tipo))%>%
   
-  
-  
+  #sumas
+  ddply(.(Presentacion), summarize, Saldo = sum(Total))
+
+return(saldos_material)  
 }
+
 
 semanas <- function(df, Campos = list(Total = 0)){
   

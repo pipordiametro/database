@@ -14,7 +14,6 @@ runtime: shiny
 ```{r global, include=FALSE}
 library(flexdashboard)
 library(ggplot2)
-library(plotly)
 library(DT)
 library(stringr)
 library(tidyr)
@@ -23,23 +22,33 @@ library(highcharter)
 source("funciones.R")
 
 #entradas de fruta
-entradas_fruta <- entradas.fruta(Campos = c("Fecha", "Clave_productor", "Clave_producto", "Aceptadas", "Clave_acopio"))
+
+entradas_fruta <- entradas.fruta(Campos = c("Fecha", "Clave_productor", "Clave_producto", "Aceptadas", "Clave_acopio"))%>%
+  collect()%>%
+  mutate(Fecha = as.Date(Fecha))
 
 #entradas de material
-entradas_material <- entradas.material()
+entradas_material <- entradas.material()%>%
+  collect()
 
 entregas_material <- entregas.material(Campos = c( "Tipo_salida", "Clave_productor", 
                                       "Fecha", "Cantidad", "Clave_material",
-                                      "Tipo_receptor", "Clave_acopio"))
-
-
+                                      "Tipo_receptor", "Clave_acopio"))%>%
+  collect()
 
 #productores activos
-productores <-   data.frame(Clave_productor = unique(entradas_fruta$Clave_productor))%>%
+productores <-   data.frame(Clave_productor = unique(entradas_fruta%>%
+                                                       select(Clave_productor)%>%
+                                                       collect()))%>%
     nombres.productores()%>%
+  collect()%>%
+ mutate(Nombre_completo = paste0(Apellido_paterno, " ",  Apellido_materno, " ",  Nombre))%>%
     rename(Codigo = Clave_productor)
+
 #acopios
-acopios <- data.frame(Clave_acopio = unique(entradas_fruta$Clave_acopio))%>%
+acopios <- data.frame(Clave_acopio = unique(entradas_fruta%>%
+                                              select(Clave_acopio)%>%
+                                              collect()))%>%
   get.acopio()
 
 #Pesos de las presentaciones
@@ -66,6 +75,7 @@ materiales <- setNames(materiales$Clave_material, materiales$Material)
 
 entradas_totales <- ddply(entradas_fruta%>%
                             select(Fecha, Clave_producto, Aceptadas, Clave_acopio)%>%
+                            collect()%>%
                             tiempos("Semana"),
                           .(Semana, Clave_producto, Clave_acopio), summarize, Total = sum(Aceptadas))
 
@@ -89,7 +99,7 @@ selectizeInput("Acopio", label = "Selecione un Acopio",
 
 
 selectizeInput("Productor", label = "Productores",
-            choices = paste(productores$Codigo,productores$Nombre_completo), 
+            choices = paste(productores$Codigo, productores$Nombre_completo), 
             options = list(placeholder = 'Seleccione un productor', maxItems = 1), multiple = TRUE)
 
 
@@ -310,8 +320,7 @@ if(is.null(input$Acopio) & is.null(input$Productor)){
 valueBox("Produccion Total")
 }else{
   if(!is.null(input$Acopio) & is.null(input$Productor)){
-   valueBox(data.frame(Clave_acopio = input$Acopio)%>%
-              get.acopio())
+   valueBox(data.frame(Clave_acopio = input$Acopio))
   }else{
     valueBox(input$Productor)
   }
@@ -393,6 +402,7 @@ if(is.null(input$Acopio) & is.null(input$Productor)){
         hchart(
       entradas_productor()%>%
             ddply(.(Fecha), summarize, Total = sum(Total*Fraccion))%>%
+#        mutate(Fecha = as.Date(Fecha))%>%
             dias(Campos = list(Total = 0)), 
           hcaes(x = Fecha, y = Total), type = "line")%>%
     hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
@@ -419,6 +429,7 @@ if(is.null(input$Acopio) & is.null(input$Productor)){
         hchart(
       entradas_productor()%>%
             ddply(.(Fecha, Clave_productor), summarize, Total = sum(Total*Fraccion))%>%
+#        mutate(Fecha = as.Date(Fecha))%>%
             dias(Campos = list(Total = 0, Clave_productor = str_match(input$Productor, "^[[0-9]]{0,3}")[,1])), 
           hcaes(x = Fecha, y = Total, group = Clave_productor), type = "line")%>%
     hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
@@ -502,19 +513,6 @@ if(is.null(input$Acopio) & is.null(input$Productor)){
 )
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 MATERIALES
 ===========================================================================
@@ -669,13 +667,20 @@ renderHighchart(
     if(!is.null(input$Productor_m)){
         hchart(flujos_productor()%>%
                  mutate(Total = ifelse(Tipo_material == "CLAMSHELL", Total/12, Total))%>%
-             ddply(.(Fecha, Presentacion), summarize, Saldo = sum(Total)), hcaes(x = Fecha, y = Saldo, group = Presentacion), type = "line")%>%
+            # ddply(.(Fecha, Presentacion), summarize, Saldo = sum(Total)), 
+              arrange(Fecha)%>%
+             group_by(Presentacion)%>%
+              mutate(Saldo = cumsum(Total))%>%
+              ungroup(),
+             hcaes(x = Fecha, y = Saldo, group = Presentacion), type = "line")%>%
            hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
  
       }else{
   if(is.null(input$Productor_m) & !is.null(input$Acopio_m)){
     hchart(flujos_acopio()%>%
              mutate(Total = ifelse(Tipo_material == "CLAMSHELL", Total/12, Total))%>%
+           #   group_by(Presentacion)%>%
+           #      summarize(Saldo = cumsum(Total))%>%
              ddply(.(Fecha, Clave_material), summarize, Saldo = sum(Cantidad))%>%
              get.material("Material") , hcaes(x = Fecha, y = Saldo, group = Material), type = "line")%>%
          hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
@@ -688,6 +693,10 @@ renderHighchart(
 
 
 ###Saldos
+```{r}
+renderDataTable(datatable(flujos_productor()%>%
+                            ddply(.(Tipo_material, Presentacion), summarize, Total = sum(Total))))
+```
 
 ###Datos
 ```{r}
