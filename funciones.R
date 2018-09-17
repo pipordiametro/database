@@ -1,16 +1,16 @@
 library(RODBC)
 library(plyr)
 library(dplyr)
-library(DBI)
-library(odbc)
-library(pool)
+#library(DBI)
+#library(odbc)
+#library(pool)
 library(tidyr)
 
 
 inicio_temporada <- as.Date("2017-09-01")
 
-pool <- dbPool(drv = odbc::odbc(),
-               dsn = "SQLProyecto08",  uid = "francisco", pwd = "Alpasa2017")
+#pool <- dbPool(drv = odbc::odbc(),
+ #              dsn = "SQLProyecto08",  uid = "francisco", pwd = "Alpasa2017")
 
 #con <- dbConnect(odbc::odbc(), "SQLProyecto08", uid = "francisco", pwd = "Alpasa2017", encoding = "UTF8")
 
@@ -75,7 +75,7 @@ get.precios <- function(){
     fruta <- var
     
     purl <- frutas.df[frutas.df == var,]$Url
-    
+      
     fruit <- read.csv(paste0("Precios/",var,".csv"))%>%
       mutate(reportDate = as.Date(reportDate))
     
@@ -87,7 +87,7 @@ get.precios <- function(){
       
       tryCatch({    
         #var <- as.Date("2018-01-23")
-        var2 <- as.Date(var2,origin="1970-01-01") 
+        var2 <- as.Date(var2, origin= "1970-01-01") 
         
         dia <- format(var2,"%d")
         
@@ -101,13 +101,14 @@ get.precios <- function(){
         dest <- paste0("Precios/files/",fruta,"/",format(var2,"%Y-%m-%d"),".xml")
         
         if(!file.exists(dest)){
-          download.file(url,dest,quiet = TRUE,method="libcurl")
+          download.file(url,dest, quiet = TRUE, method="libcurl")
         }
-      },error=function(e){})
+      },error = function(e){})
       
     }
     
     for(var3 in dias){
+      tryCatch({  
       #var <- "2018-01-17"
       var3 <- as.Date(var3,origin="1970-01-01") 
       dia <- format(var3,"%d")
@@ -124,9 +125,9 @@ get.precios <- function(){
         fruit <- rbind(fruit,table)
         fruit <- unique(fruit)
       }
-    }
+    }, error = function(e){})}
     
-    write.csv(fruit,paste0("Precios/files/",fruta,".csv"))
+    write.csv(fruit,paste0("Precios/",fruta,".csv"))
   }
 }
 
@@ -186,7 +187,7 @@ tiempos <- function(df, Campos = c("Semana", "Semanats", "Year", "Temporada")){
            Year = as.integer(format(Fecha , "%Y")),
            Year = ifelse(Semana == 0, Year - 1, Year),
            Semana = ifelse(Semana %in% c(0,53), 52, Semana),
-           Semanats = min(Year - 2010)*52 + as.integer(Semana),
+           Semanats = (Year - 2010)*52 + as.integer(Semana),
            Semana = factor(Semana, levels = (c(34:85)%%52 + 1), ordered = TRUE),
            Temporada = ifelse((Fecha >= as.Date("2013-09-01") & Fecha < as.Date("2014-09-01")), "2013-2014",
                               ifelse((Fecha >= as.Date("2014-09-01") & Fecha < as.Date("2015-09-01")), "2014-2015",
@@ -230,17 +231,25 @@ kable2 = function(...) {
 }
 
 #dolar
-getdolar <- function(){
-  library(imputeTS)
+get.dolar <- function(){
+  
   hoy <- format(Sys.Date(),format ="%Y-%m-%d")
-  dolarurl <- paste0("https://fred.stlouisfed.org/graph/fredgraph.csv?chart_type=line&recession_bars=on&log_scales=&bgcolor=%23e1e9f0&graph_bgcolor=%23ffffff&fo=Open+Sans&ts=12&tts=12&txtcolor=%23444444&show_legend=yes&show_axis_titles=yes&drp=0&cosd=2016-09-01&coed=",
+  dolarurl <- paste0("https://fred.stlouisfed.org/graph/fredgraph.csv?chart_type=line&recession_bars=on&log_scales=&bgcolor=%23e1e9f0&graph_bgcolor=%23ffffff&fo=Open+Sans&ts=12&tts=12&txtcolor=%23444444&show_legend=yes&show_axis_titles=yes&drp=0&cosd=2010-01-01&coed=",
                      hoy,"&height=450&stacking=&range=Custom&mode=fred&id=DEXMXUS&transformation=lin&nd=1993-11-08&ost=-99999&oet=99999&lsv=&lev=&mma=0&fml=a&fgst=lin&fgsnd=2009-06-01&fq=Daily&fam=avg&vintage_date=&revision_date=&line_color=%234572a7&line_style=solid&lw=2&scale=left&mark_type=none&mw=2&width=968")
   
   download.file(dolarurl,"DEXMXUS.csv",quiet = TRUE,method="libcurl")
+  
   dolar <- read.csv("DEXMXUS.csv", stringsAsFactors = FALSE)%>%
-    mutate(DATE =as.Date(DATE))
-  dias <- data.frame(DATE = c(as.Date(c(min(dolar$DATE):max(dolar$DATE)), origin = "1970-01-01")))
-  dolar <- merge(dias, dolar, all.x = TRUE, by = "DATE")%>%
+    mutate(DATE =as.Date(DATE))%>%
+    mutate(DEXMXUS = ifelse(DEXMXUS ==".", NA, DEXMXUS),
+           DEXMXUS = as.numeric(DEXMXUS))%>%
+    repl
+  
+  
+  dolar <- xts(order.by = dolar$DATE, x = dolar$DEXMXUS)
+  
+  
+  dolar <- merge(index(dias), dolar, fill = )%>%
     mutate(DEXMXUS = ifelse(DEXMXUS ==".", NA, DEXMXUS),
            DEXMXUS = as.numeric(DEXMXUS))%>%
     arrange(DATE)%>%
@@ -271,7 +280,7 @@ get.productos <- function(df, Campos = c("Clave_fruta", "Clave_presentacion",  "
               Variedad = strVar_ied, Variedad_corto = strVar_cto, Tipo_fruta = strTip_o,
               Tipo_corto = strTip_cto)%>% 
     mutate(Fruta = paste(Nombre_corto_fruta,Tipo_corto))%>%
-    mutate(Producto = paste0(Fruta,"_", Presentacion, "_", Nombre_producto),
+    mutate(Producto = paste0(Nombre_producto, "_", Presentacion, "_", Fruta),
            Fraccion6oz = ifelse(Unidad == "G", Clams*Peso*0.035274/72  , Clams * Peso/72))%>%
     select(Clave_producto, one_of(Campos))%>%
     right_join(df, by = "Clave_producto")
@@ -351,10 +360,11 @@ entradas.fruta <- function(Campos = c("Id_entradas","Idb_entradas", "Nota", "Fol
               Fecha = as.Date(fecFec_not), Clave_productor = intCla_pro, 
               Clave_acopio = intCen_aco, Cantidad = as.integer(intCan_tid), Rechazadas = as.integer(intCan_rec), Clave_producto =  intCla_prod,
               Pallet = intNum_pal, Precio = as.numeric(floPre_uni), Numero_pago = intNum_pag, Pagado = strPag_ado)%>%
-    filter(Fecha >= inicio_temporada)%>%
+   # filter(Fecha >= inicio_temporada)%>%
     mutate(Aceptadas = Cantidad - Rechazadas)%>%
     select(one_of(Campos))
- 
+  
+  
  return(entradas_fruta)
 }
 
@@ -502,10 +512,10 @@ saldos_material <-    rbind(
       rename(Tipo = Tipo_entrada)%>%
       get.material(Campos = c("Presentacion", "Tipo_material"))%>%
       mutate(Total = -Cantidad)%>%
-      select(Fecha, Presentacion, Total, Tipo_material, Tipo))%>%
+      select(Fecha, Presentacion, Total, Tipo_material, Tipo))#%>%
   
   #sumas
-  ddply(.(Presentacion), summarize, Saldo = sum(Total))
+  #ddply(.(Presentacion), summarize, Saldo = sum(Total))
 
 return(saldos_material)  
 }
@@ -540,20 +550,75 @@ myhcsemana <- function(df, name = "Producto", data = "Total"){
   df2$Producto <- df[,c(name)]
   df2$Total <- df[,c(data)]
   
+hc <-  highchart()%>%
+#    hc_add_series_list(x)%>%
+    hc_chart(type = "column")%>%
+    hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)%>%
+    hc_xAxis(list(type = "category", crosshair = TRUE, categories =  sort(unique(data.frame(Semana = factor(c(1:52), 
+                                                                                                            levels = (c(34:85)%%52 + 1), 
+                                                                                                            ordered = TRUE))[,1])),
+                  min =  min(as.numeric(df2[df2$Total != 0,]$Semana))-1, 
+                  max = max(as.numeric(df2[df2$Total != 0,]$Semana))))%>%
+    hc_tooltip(crosshair = TRUE,
+               shared = TRUE,
+               split = FALSE)%>%
+    hc_plotOptions(column = list(tooltip = list( useHTML= TRUE,
+                                                 headerFormat =  '<small>Semana:{point.key}</small><table>',
+                                                 pointFormat = '<br><tr><td style="color: {point.color}"> {series.name} : </td></br>
+                                               <br style="color: #000000"> {point.y} Cajas</br>' ,
+                                                 valueDecimals = 2)))
+  
+  
+ # l = list()
+  for(var in  unique(df2$Producto)){
+    y  <- df2%>%
+      filter(Producto == var)%>%
+      semanas(Campos = list(Total = NA))%>%
+      arrange(Semana)
+    
+    
+    
+    serie <- list(list(x = y$Semana, name = var, data = y$Total))
+    
+    hc <- hc_add_series_list(hc,serie)
+  
+  }
+  
+  
+    return(hc)
+               
+
+    
+  
+  
+  
+}
+
+myhcsemana.line <- function(df, name = "Producto", data = "Total"){
+  
+  df2 <- df%>%
+    select(Semana, one_of(c(name,data)))
+  
+  names(df2) <- c("Semana", "Producto", "Total")
+  
+  
   x = list()
   for(var in  unique(df2$Producto)){
     y  <- df2%>%
       filter(Producto == var)%>%
       semanas(Campos = list(Total = 0))%>%
-      arrange(Semana)
+      arrange(Semana)%>%
+      mutate(Saldo = cumsum(Total))%>%
+      ungroup()
     
-    x[[length(x)+1]] <-  list(name = var, data = y$Total)
-  
+    
+    x[[length(x)+1]] <-  list(name = var, data = y$Saldo)
+    
   }
   
   highchart()%>%
     hc_add_series_list(x)%>%
-    hc_chart(type = "column")%>%
+    hc_chart(type = "line")%>%
     hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)%>%
     hc_xAxis(list(type = "category", 
                   categories =  sort(unique(data.frame(Semana = factor(c(1:52), 
@@ -561,7 +626,265 @@ myhcsemana <- function(df, name = "Producto", data = "Total"){
                                                                        ordered = TRUE))[,1])),
                   min =  min(as.numeric(df2[df2$Total != 0,]$Semana))-1, 
                   max = max(as.numeric(df2[df2$Total != 0,]$Semana))))
-    
-               
-    
+  
+  
+  
 }
+
+myhcdiario.line <- function(df, name = "Producto", data = "Total"){
+  
+  df2 <- df%>%
+    select(Fecha, one_of(c(name,data)))
+  
+  names(df2) <- c("Fecha", "Producto", "Total")
+  
+  
+  x = list()
+  for(var in  unique(df2$Producto)){
+    y  <- df2%>%
+      filter(Producto == var)%>%
+      dias(Campos = list(Total = 0))%>%
+      arrange(Fecha)%>%
+      mutate(Saldo = cumsum(Total))%>%
+      ungroup()%>%
+      mutate(Producto = var)
+    
+    
+    x[[length(x)+1]] <-  list(y)
+    
+  }
+  
+y  <- ldply(x, data.frame)
+  
+  
+  
+    hchart(y, hcaes(x = Fecha, y = Saldo, group = Producto), type = "line")%>%
+    hc_chart(zoomType = "xy", panKey = "ctrl", panning = TRUE)
+  
+  
+}
+
+precios.usda <- function(){
+  #library(imputeTS)
+  library(xts)
+  
+  frutas.df <- data.frame(Fruta = c("Blackberries", "Blueberries"), 
+                          Nombre_corto = c("ZAR","ARA"))
+  
+  for (var in frutas.df$Fruta){
+    precios.var <- read.csv(paste0("Precios/",var,".csv"))%>%
+      rename(Presentacion_usda = packageDesc, Puerto =  cityName , Fecha = reportDate, 
+             Precio_menor = lowPriceMin, Precio_mayor = highPriceMax, Frecuente_menor = mostlyLowMin,
+             Frecuente_mayor = mostlyHighMax, Suministro = supplyTone, Demanda = demandTone, 
+             Mercado = marketTone, Ciudad_reporte = reportingCity)%>%
+      mutate(Fecha = as.Date(Fecha))%>%
+      select(Puerto, Fecha, Precio_menor, Precio_mayor, Frecuente_menor, Frecuente_mayor,
+             Ciudad_reporte, organic)
+    
+ 
+    assign(paste0(frutas.df[frutas.df$Fruta == var,]$Nombre_corto,".CN"), 
+           precios.var[precios.var$organic != "Organic",]%>%
+             mutate(Fruta = paste(frutas.df[frutas.df$Fruta == var,]$Nombre_corto,"CN")))
+    
+  }
+  ara_usda <- merge(ARA.CN%>%
+    filter(!Puerto %in% c("CENTRAL & NORTH FLORIDA", 
+                          "ARGENTINA IMPORTS - PORT OF ENTRY LOS ANGELES INTERNATIONAL AIRPORT"))%>%
+    ddply(.(Fecha), summarize, 
+          High = mean(Precio_mayor, na.rm = TRUE), Low = mean(Precio_menor, na.rm = TRUE), 
+          Close = ((High+Low)/2))%>%
+    xts(order.by = .$Fecha),
+    index(xts(order.by = seq(min(ARA.CN$Fecha),max(ARA.CN$Fecha), "day"))), fill  = na.approx)
+ 
+  ara_usda$Open <- lag(ara_usda$Close)
+    
+  ara_usda <<- ara_usda[,c("Open", "High", "Low", "Close")]
+ 
+  zar <- merge(ZAR.CN%>%
+    filter(Puerto %in% c("CARIBBEAN BASIN IMPORTS - PORTS OF ENTRY SOUTH FLORIDA",
+                         "CENTRAL AMERICA IMPORTS - PORTS OF ENTRY SOUTH FLORIDA",
+                         "MEXICO CROSSINGS THROUGH ARIZONA, CALIFORNIA AND TEXAS"))%>%
+    ddply(.(Fecha), summarize, 
+          High = mean(Precio_mayor, na.rm = TRUE), Low = mean(Precio_menor, na.rm = TRUE), 
+          Close = ((High+Low)/2))%>%
+    xts(order.by = .$Fecha),
+  index(xts(order.by = seq(min(ARA.CN$Fecha),max(ARA.CN$Fecha), "day"))), fill  = na.approx)
+  
+  zar$Open <- lag(zar$Close)
+  
+  return(zar[,c("High","Low" ,"Open" , "Close")])
+  
+
+}
+
+
+get.cliente <- function(df){
+  df <- left_join(df, myfetch("tbClientes")%>%
+    transmute(Clave_cliente = intCla_cli, Cliente = strNom_bre),
+    by = "Clave_cliente")
+    return(df)
+}
+
+get.destino <- function(df){
+  df <- left_join(df, myfetch("tbDestinos")%>%
+                    transmute(Pais = strPai_s, Clave_destino= intCla_des),
+                  vy = "Clave_destino")
+}
+
+
+
+
+salidas.fruta <- function(Campos = c( "Folio", "Fecha", "Clave_cliente",  "Clave_destino",
+                                       "Destino", "Pallets", "Fecha_arrivo", "Pallet", 
+                                      "Clave_producto", "Cantidad")){
+  
+  salidas_fruta <- left_join(myfetch("tbSalFruEmp")%>%
+    filter(strCan_cel == "NO"),
+    myfetch("tbSalFruEmpReg")%>%
+      filter(strCan_cel == "NO"),
+    by = "intNum_reg", suffix = c("h", "b"))%>%
+    transmute(Folio = intNum_fol, Fecha = fecFec_sal,
+              Clave_cliente = intCla_cli, Clave_destino =  intCla_des,
+              Destino = strDes_tin,Pallets =  strPal_let, Mexican_cus = strMex_cus, 
+              American_cus = strAme_cus, strWar_hou =  strWar_hou, Fecha_arrivo = strArr_dat,  
+              Pallet = intNum_pal,
+              Clave_producto = strCla_prod, Cantidad = intCan_tid)%>%
+    mutate(Fecha = as.Date(Fecha), Cantidad = as.integer(Cantidad))%>%
+    select(one_of(Campos))
+  
+}
+
+
+liquid <- function(Campos = c( "Folio", "Fecha","Clave_producto", "Clave_fruta", "Clave_cliente", "Clave_destino", "Pallets",
+                                      "Precio_real", "Comision_aduanal","Cantidad", 
+                                      "Manejo", "Handlio", "Comision_ventas", "Caja", "Frio", 
+                                      "Mano_obra","Energia")){
+  
+  df <- left_join(left_join(myfetch("tbSalFruEmp")%>%
+                              filter(strCan_cel == "NO"),
+                            
+                            myfetch("tbSalFruEmpReg")%>%
+                              filter(strCan_cel == "NO"),
+                            by = "intNum_reg", suffix = c("h", "b"))%>%
+                    
+                    transmute(Folio = intNum_fol, Fecha = fecFec_sal,
+                              Clave_cliente = intCla_cli, Clave_destino =  intCla_des,
+                              Destino = strDes_tin,Pallets =  strPal_let, Mexican_cus = strMex_cus, 
+                              American_cus = strAme_cus, strWar_hou =  strWar_hou, Fecha_arrivo = strArr_dat,  
+                              Pallet = intNum_pal,
+                              Clave_producto = strCla_prod, Cantidad = intCan_tid)%>%
+                    mutate(Fecha = as.Date(Fecha), Cantidad = as.integer(Cantidad))%>%
+                    get.productos(Campos = c("Clave_fruta", "Clave_presentacion")),
+                  
+                  myfetch("tbPreciosEstimadosSalidas")%>%
+                    filter(strCan_cel == "NO")%>%
+                    transmute(Folio = intNum_fol, Clave_presentacion = intCla_pre, Clave_fruta = intCla_fru ,
+                              Precio_real = floPre_rea, Comision_aduanal = floCus_tom, 
+                              Manejo = floHan_dliD, Handlio = floHan_dliO, Comision_ventas = floSal_es,
+                              Caja = floCaj_a, Frio = floFri_o, Mano_obra = floMan_obr, Energia = floEne_rgi), 
+                  by = c("Folio", "Clave_presentacion", "Clave_fruta"), suffix = c("_s","_p" ))%>%
+    filter(Folio > 1672)%>%
+    select(one_of(Campos))
+   
+  
+  
+return(df)
+}
+  
+
+
+zar.usda <- function(){
+  #library(imputeTS)
+  library(xts)
+  
+  frutas.df <- data.frame(Fruta = c("Blackberries", "Blueberries"), 
+                          Nombre_corto = c("ZAR","ARA"))
+  
+  
+    precios.var <- read.csv(paste0("Precios/","Blackberries",".csv"))%>%
+      rename(Presentacion_usda = packageDesc, Puerto =  cityName , Fecha = reportDate, 
+             Precio_menor = lowPriceMin, Precio_mayor = highPriceMax, Frecuente_menor = mostlyLowMin,
+             Frecuente_mayor = mostlyHighMax, Suministro = supplyTone, Demanda = demandTone, 
+             Mercado = marketTone, Ciudad_reporte = reportingCity)%>%
+      mutate(Fecha = as.Date(Fecha))%>%
+      select(Puerto, Fecha, Precio_menor, Precio_mayor, Frecuente_menor, Frecuente_mayor,
+             Ciudad_reporte, organic)
+    
+    
+  ZAR.CN <-precios.var[precios.var$organic != "Organic",]
+    
+  
+ 
+  zar <- merge(ZAR.CN%>%
+                 filter(Puerto %in% c("CARIBBEAN BASIN IMPORTS - PORTS OF ENTRY SOUTH FLORIDA",
+                                      "CENTRAL AMERICA IMPORTS - PORTS OF ENTRY SOUTH FLORIDA",
+                                      "MEXICO CROSSINGS THROUGH ARIZONA, CALIFORNIA AND TEXAS"))%>%
+                 ddply(.(Fecha), summarize, 
+                       High = mean(Precio_mayor, na.rm = TRUE), Low = mean(Precio_menor, na.rm = TRUE), 
+                       Close = ((High+Low)/2))%>%
+                 xts(order.by = .$Fecha),
+               index(xts(order.by = seq(min(ZAR.CN$Fecha, na.rm = TRUE),max(ZAR.CN$Fecha, na.rm = TRUE), "day"))), fill  = na.approx)
+  
+  zar$Open <- lag(zar$Close)
+  
+  return(zar[,c("High","Low" ,"Open" , "Close")])
+  
+}
+
+ara.usda <- function(){
+  
+ library(xts)
+
+  frutas.df <- data.frame(Fruta = c("Blackberries", "Blueberries"), 
+                          Nombre_corto = c("ZAR","ARA"))
+  
+precios.var <- read.csv(paste0("Precios/","Blueberries",".csv"))%>%
+  rename(Presentacion_usda = packageDesc, Puerto =  cityName , Fecha = reportDate, 
+         Precio_menor = lowPriceMin, Precio_mayor = highPriceMax, Frecuente_menor = mostlyLowMin,
+         Frecuente_mayor = mostlyHighMax, Suministro = supplyTone, Demanda = demandTone, 
+         Mercado = marketTone, Ciudad_reporte = reportingCity)%>%
+  mutate(Fecha = as.Date(Fecha))%>%
+  select(Puerto, Fecha, Precio_menor, Precio_mayor, Frecuente_menor, Frecuente_mayor,
+         Ciudad_reporte, organic)
+
+
+ARA.CN <-precios.var[precios.var$organic != "Organic",]
+
+ara <- merge(ARA.CN%>%
+                    filter(!Puerto %in% c("CENTRAL & NORTH FLORIDA", 
+                                          "ARGENTINA IMPORTS - PORT OF ENTRY LOS ANGELES INTERNATIONAL AIRPORT"))%>%
+                    ddply(.(Fecha), summarize, 
+                          High = mean(Precio_mayor, na.rm = TRUE), Low = mean(Precio_menor, na.rm = TRUE), 
+                          Close = ((High+Low)/2))%>%
+                    xts(order.by = .$Fecha),
+                  index(xts(order.by = seq(min(ARA.CN$Fecha),max(ARA.CN$Fecha), "day"))), fill  = na.approx)
+
+ara$Open <- lag(ara$Close)
+
+return(ara[,c("High","Low" ,"Open" , "Close")])
+
+}
+
+decompose.xts <-  function (x, type = c("additive", "multiplicative"), filter = NULL)   {
+    dts <- decompose(as.ts(x), type, filter)
+    dts$x <- .xts(dts$x, .index(x))
+    dts$seasonal <- .xts(dts$seasonal, .index(x))
+    dts$trend <- .xts(dts$trend, .index(x))
+    dts$random <- .xts(dts$random, .index(x))
+    
+    with(dts,
+         structure(list(x = x, seasonal = seasonal, trend = trend,
+                        random = if (type == "additive") x - seasonal - trend else x/seasonal/trend, 
+                        figure = figure, type = type), class = "decomposed.xts"))
+  }
+
+plot.decomposed.xts <-  function(x, ...){
+    xx <- x$x
+    if (is.null(xx))
+      xx <- with(x,
+                 if (type == "additive") random + trend + seasonal
+                 else random * trend * seasonal)
+    p <- cbind(observed = xx, trend = x$trend, seasonal = x$seasonal, random = x$random)
+    plot(p, main = paste("Decomposition of", x$type, "time series"), multi.panel = 4,
+         yaxis.same = FALSE, major.ticks = "days", grid.ticks.on = "days", ...)
+  }

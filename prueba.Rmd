@@ -7,7 +7,7 @@ output:
     logo: logo.JPG
     favicon: logo.JPG
     theme: yeti
-runtime: shiny  
+runtime: shiny 
 
 ---
 
